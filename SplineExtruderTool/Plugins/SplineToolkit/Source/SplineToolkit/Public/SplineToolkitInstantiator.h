@@ -9,32 +9,32 @@
 #include "SplineToolkitInstantiator.generated.h"
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
-class SPLINETOOLKIT_API USplineToolkitInstantiator : public UActorComponent {
-  GENERATED_BODY()
+class SPLINETOOLKIT_API USplineToolkitInstantiator : public UActorComponent
+{
+	GENERATED_BODY()
 
 public:
-  // Sets default values for this component's properties
-  USplineToolkitInstantiator();
+	// Sets default values for this component's properties
+	USplineToolkitInstantiator();
 
-  // Called when the game starts
-  virtual void BeginPlay() override;
-  
+	// Called when the game starts
+	virtual void BeginPlay() override;
+
 protected:
-
-  virtual void OnRegister() override;
+	virtual void OnRegister() override;
 
 public:
-  // Called every frame
-  virtual void
-  TickComponent(float DeltaTime, ELevelTick TickType,
-                FActorComponentTickFunction *ThisTickFunction) override;
-  
-  UFUNCTION(CallInEditor, Category = "Spline Toolkit")
-  void Regenerate();
-  
-  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
-  USplineToolkitRuleset* Ruleset;
-  
-  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
-  USplineComponent* SplineComponent = nullptr;
+	// Called every frame
+	virtual void
+	TickComponent(float                        DeltaTime, ELevelTick TickType,
+	              FActorComponentTickFunction* ThisTickFunction) override;
+
+	UFUNCTION(CallInEditor, Category = "Spline Toolkit")
+	void Regenerate();
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	USplineToolkitRuleset* Ruleset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	USplineComponent* SplineComponent = nullptr;
 };

@@ -16,13 +16,13 @@ USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitAnchor
 {
 public:
-  GENERATED_BODY()
-  
-  UPROPERTY(EditAnywhere, BlueprintReadWrite)
-  FVector Offset;
-  
-  UPROPERTY(EditAnywhere, BlueprintReadWrite)
-  FString Type;
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector Offset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString Type;
 };
 
 /// An anchor used by rules
@@ -30,9 +30,7 @@ USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitRuleModifier
 {
 public:
-  GENERATED_BODY()
-  
-  
+	GENERATED_BODY()
 };
 
 
@@ -45,10 +43,10 @@ USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitInstantiationRule
 {
 public:
-  GENERATED_BODY()
-  
-  UPROPERTY(EditAnywhere, BlueprintReadWrite)
-  UStaticMesh* Mesh = nullptr;
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UStaticMesh* Mesh = nullptr;
 };
 
 /// Extrusion rule for its matching component
@@ -56,10 +54,10 @@ USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitExtrusionRule
 {
 public:
-  GENERATED_BODY()
-  
-  UPROPERTY(EditAnywhere, BlueprintReadWrite)
-  UStaticMesh* Mesh = nullptr;
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UStaticMesh* Mesh = nullptr;
 };
 
 /// Stretching rule for its matching component
@@ -67,16 +65,16 @@ USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitStretchRule
 {
 public:
-  GENERATED_BODY()
-  
-  UPROPERTY(EditAnywhere, BlueprintReadWrite)
-  UStaticMesh* Mesh = nullptr;
-  
-  UPROPERTY(EditAnywhere, BlueprintReadWrite)
-  FString StartAnchorType;
-  
-  UPROPERTY(EditAnywhere, BlueprintReadWrite)
-  FString EndAnchorType;
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UStaticMesh* Mesh = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString StartAnchorType;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString EndAnchorType;
 };
 
 /// Placement rule for its matching component
@@ -84,10 +82,10 @@ USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitPlacementRule
 {
 public:
-  GENERATED_BODY()
-  
-  UPROPERTY(EditAnywhere, BlueprintReadWrite)
-  UStaticMesh* Mesh = nullptr;
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UStaticMesh* Mesh = nullptr;
 };
 
 // ===============================
@@ -97,39 +95,44 @@ public:
 UCLASS(BlueprintType)
 class SPLINETOOLKIT_API USplineToolkitRuleset : public UPrimaryDataAsset
 {
-  GENERATED_BODY()
-  
+	GENERATED_BODY()
+
 public:
-  UPROPERTY(EditAnywhere, BlueprintReadWrite)
-  TArray<FSplineToolkitInstantiationRule> InstantiationRules = {};
-  
-  UPROPERTY(EditAnywhere, BlueprintReadWrite)
-  TArray<FSplineToolkitExtrusionRule> ExtrusionRules = {};
-  
-  UPROPERTY(EditAnywhere, BlueprintReadWrite)
-  TArray<FSplineToolkitStretchRule> StretchRules = {};
-  
-  UPROPERTY(EditAnywhere, BlueprintReadWrite)
-  TArray<FSplineToolkitPlacementRule> PlacementRules = {};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FSplineToolkitInstantiationRule> InstantiationRules = {};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FSplineToolkitExtrusionRule> ExtrusionRules = {};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FSplineToolkitStretchRule> StretchRules = {};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FSplineToolkitPlacementRule> PlacementRules = {};
 };
 
 #if WITH_EDITOR
 
 
 UCLASS()
-class UAssetDefinition_SplineToolkitRuleset: public UAssetDefinitionDefault
+class UAssetDefinition_SplineToolkitRuleset : public UAssetDefinitionDefault
 {
-  GENERATED_BODY()
-	 
+	GENERATED_BODY()
+
 public:
-  virtual TSoftClassPtr<UObject>GetAssetClass() const override {return USplineToolkitRuleset::StaticClass();}
-  virtual FText GetAssetDisplayName() const override {return FText::FromString("Spline Ruleset");}
-  virtual FLinearColor GetAssetColor() const override {return FLinearColor::FromSRGBColor(FColor::FromHex("#234287"));}
-  virtual TConstArrayView<FAssetCategoryPath> GetAssetCategories() const override
-  {
-    static const FAssetCategoryPath Categories[] = {FText::FromString("Data")};
-    return Categories;
-  }
+	virtual TSoftClassPtr<UObject> GetAssetClass() const override { return USplineToolkitRuleset::StaticClass(); }
+	virtual FText                  GetAssetDisplayName() const override { return FText::FromString("Spline Ruleset"); }
+
+	virtual FLinearColor GetAssetColor() const override
+	{
+		return FLinearColor::FromSRGBColor(FColor::FromHex("#234287"));
+	}
+
+	virtual TConstArrayView<FAssetCategoryPath> GetAssetCategories() const override
+	{
+		static const FAssetCategoryPath Categories[] = {FText::FromString("Data")};
+		return Categories;
+	}
 };
 
 #endif
@@ -137,14 +140,13 @@ public:
 UCLASS(HideCategories = Object)
 class USplineToolkitRulesetFactory : public UFactory
 {
-  
-  
-  GENERATED_BODY()
-	 
+	GENERATED_BODY()
+
 public:
-  USplineToolkitRulesetFactory(const FObjectInitializer& ObjectInitializer);
-  
-  //~ Begin UFactory Interface
-  virtual UObject* FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn) override;
-  //~ End UFactory Interface
+	USplineToolkitRulesetFactory(const FObjectInitializer& ObjectInitializer);
+
+	//~ Begin UFactory Interface
+	virtual UObject* FactoryCreateNew(UClass*  Class, UObject*            InParent, FName Name, EObjectFlags Flags,
+	                                  UObject* Context, FFeedbackContext* Warn) override;
+	//~ End UFactory Interface
 };

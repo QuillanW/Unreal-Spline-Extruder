@@ -15,8 +15,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d0bd465e-4b15-4823-851c-c49332b3f32b" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/Automation_SplineExtruderTool.slnx" beforeDir="false" afterPath="$PROJECT_DIR$/Automation_SplineExtruderTool.slnx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SplineExtruderTool.slnx" beforeDir="false" afterPath="$PROJECT_DIR$/SplineExtruderTool.slnx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Plugins/SplineToolkit/Source/SplineToolkit/Private/SplineToolkitInstantiator.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/Plugins/SplineToolkit/Source/SplineToolkit/Private/SplineToolkitInstantiator.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Plugins/SplineToolkit/Source/SplineToolkit/Public/SplineToolkitInstantiator.h" beforeDir="false" afterPath="$PROJECT_DIR$/Plugins/SplineToolkit/Source/SplineToolkit/Public/SplineToolkitInstantiator.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Plugins/SplineToolkit/Source/SplineToolkit/Public/SplineToolkitRuleset.h" beforeDir="false" afterPath="$PROJECT_DIR$/Plugins/SplineToolkit/Source/SplineToolkit/Public/SplineToolkitRuleset.h" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -39,6 +40,7 @@
   }
 }</component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/../../../../../../../../Program Files/Epic Games/UE_5.8/Engine/Source/Runtime/CoreUObject/Public/UObject/UObjectGlobals.h" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Plugins/SplineToolkit/Source/SplineToolkit/Private/SplineToolkitRuleset.cpp" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Plugins/SplineToolkit/Source/SplineToolkit/Private/SplineToolkitRulesetEditor.cpp" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Plugins/SplineToolkit/Source/SplineToolkit/Public/SplineToolkitRuleset.h" root0="FORCE_HIGHLIGHTING" />
@@ -50,61 +52,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0000000049841686" />
-      <entry key="MS500" value="1.0218533762927884" />
-      <entry key="S2" value="1.3844852078175671" />
-      <entry key="S5" value="1.6822630547035806" />
-      <entry key="S10" value="1.8259921638269825" />
-      <entry key="S30" value="1.93826455252754" />
-      <entry key="S60" value="1.9686405693174018" />
-      <entry key="M2" value="1.9841953918391417" />
-      <entry key="M5" value="1.9936479271766157" />
-      <entry key="M10" value="1.996818903902116" />
-      <entry key="M15" value="1.9978781433007478" />
-      <entry key="M30" value="1.9989385082680253" />
-      <entry key="H1" value="1.9994691132136229" />
-      <entry key="H2" value="1.9997345213673592" />
-      <entry key="H4" value="1.9998672518726468" />
-      <entry key="D1" value="1.9999778740882541" />
-      <entry key="W1" value="1.9999968391254916" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0" />
+      <entry key="S5" value="1.0000000097292816" />
+      <entry key="S10" value="1.000168351106386" />
+      <entry key="S30" value="1.114454898729679" />
+      <entry key="S60" value="1.5887694067544924" />
+      <entry key="M2" value="2.4696541369482636" />
+      <entry key="M5" value="5.183137951277148" />
+      <entry key="M10" value="11.424850304689587" />
+      <entry key="M15" value="20.744184549694715" />
+      <entry key="M30" value="56.983185000825316" />
+      <entry key="H1" value="128.0222935835996" />
+      <entry key="H2" value="219.86214839712534" />
+      <entry key="H4" value="300.31983759203735" />
+      <entry key="D1" value="397.96862404376344" />
+      <entry key="W1" value="418.4604898557809" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="0.0" />
-      <entry key="MS500" value="0.0" />
-      <entry key="S2" value="0.0" />
-      <entry key="S5" value="0.0" />
-      <entry key="S10" value="0.0" />
-      <entry key="S30" value="0.0" />
-      <entry key="S60" value="0.0" />
-      <entry key="M2" value="0.0" />
-      <entry key="M5" value="0.0" />
-      <entry key="M10" value="0.0" />
-      <entry key="M15" value="0.0" />
-      <entry key="M30" value="0.0" />
-      <entry key="H1" value="0.0" />
-      <entry key="H2" value="0.0" />
-      <entry key="H4" value="0.0" />
-      <entry key="D1" value="0.0" />
-      <entry key="W1" value="0.0" />
+      <entry key="MS100" value="5.390764899866024E-21" />
+      <entry key="MS500" value="8.837513259152578E-5" />
+      <entry key="S2" value="0.09695774796591096" />
+      <entry key="S5" value="0.393217654041052" />
+      <entry key="S10" value="0.6270706930175982" />
+      <entry key="S30" value="0.856046753494856" />
+      <entry key="S60" value="0.9415961514805269" />
+      <entry key="M2" value="1.2135140053662365" />
+      <entry key="M5" value="2.7149268900364563" />
+      <entry key="M10" value="4.907474136386674" />
+      <entry key="M15" value="6.790050492422282" />
+      <entry key="M30" value="11.68449858802606" />
+      <entry key="H1" value="18.54988667397593" />
+      <entry key="H2" value="25.67796936179886" />
+      <entry key="H4" value="31.234060470552095" />
+      <entry key="D1" value="37.5105363745846" />
+      <entry key="W1" value="38.78176768846737" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="7.552960449497242E-8" />
-      <entry key="MS500" value="0.04730109231064929" />
-      <entry key="S2" value="0.7540352381937383" />
-      <entry key="S5" value="1.3492203057214582" />
-      <entry key="S10" value="1.6417471641866417" />
-      <entry key="S30" value="1.87240491365504" />
-      <entry key="S60" value="1.9351201091222137" />
-      <entry key="M2" value="1.9672847314515605" />
-      <entry key="M5" value="1.9868471990226668" />
-      <entry key="M10" value="1.993412432170871" />
-      <entry key="M15" value="1.9956058026347183" />
-      <entry key="M30" value="1.9978016576143345" />
-      <entry key="H1" value="1.9989005177006343" />
-      <entry key="H2" value="1.999450181051075" />
-      <entry key="H4" value="1.9997250710729" />
-      <entry key="D1" value="1.9999541758101549" />
-      <entry key="W1" value="1.9999934536209905" />
+      <entry key="MS100" value="1.9693402324758952E-4" />
+      <entry key="MS500" value="0.1814949152572447" />
+      <entry key="S2" value="0.6717017582950252" />
+      <entry key="S5" value="1.047986978720473" />
+      <entry key="S10" value="1.370996626763852" />
+      <entry key="S30" value="1.8509759523034777" />
+      <entry key="S60" value="2.4582181181403726" />
+      <entry key="M2" value="3.6375032498649147" />
+      <entry key="M5" value="7.86511962877761" />
+      <entry key="M10" value="16.29756113278354" />
+      <entry key="M15" value="27.497652335598474" />
+      <entry key="M30" value="68.63177347004624" />
+      <entry key="H1" value="146.54220472053362" />
+      <entry key="H2" value="245.51881946436148" />
+      <entry key="H4" value="331.5407360387648" />
+      <entry key="D1" value="435.47648418898376" />
+      <entry key="W1" value="457.2418610997529" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -132,7 +134,8 @@
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm"
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.sourceCode.C++"
   }
 }]]></component>
   <component name="RunManager" selected="C/C++ Project.SplineExtruderTool">
@@ -173,7 +176,7 @@
       <option name="presentableId" value="Default" />
       <updated>1788422528474</updated>
       <workItem from="1788422528476" duration="251000" />
-      <workItem from="1788422823683" duration="2053000" />
+      <workItem from="1788422823683" duration="12266000" />
     </task>
     <servers />
   </component>
@@ -201,5 +204,9 @@
         </breakpoint>
       </breakpoints>
     </breakpoint-manager>
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
   </component>
 </project>
