@@ -25,12 +25,37 @@ public:
 	FString Type;
 };
 
-/// An anchor used by rules
+/// Modifier threshold type
+UENUM(BlueprintType)
+enum class EModifierThresholdOperator : uint8 {
+	MIN UMETA(DisplayName = "Minimum Threshold"),
+	MAX UMETA(DisplayName = "Maximum Threshold"),
+	IF UMETA(DisplayName = "If True"),
+	IFNOT UMETA(DisplayName = "If Not True"),
+};
+
+/// Modifier modification type
+UENUM(BlueprintType)
+enum class EModifierModificationType : uint8 {
+	MULTIPLY UMETA(DisplayName = "Multiply Modification"),
+	DIVIDE UMETA(DisplayName = "Divide Modification"),
+	ADD UMETA(DisplayName = "Add Modification"),
+	SET UMETA(DisplayName = "Set Modification"),
+	INVERT UMETA(DisplayName = "Invert Modification"),
+};
+
+/// A modifier used by rules
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitRuleModifier
 {
 public:
 	GENERATED_BODY()
+	
+	// Input Value
+	// Threshold Operator
+	// Modify Value
+	// Modify Operator
+	// Output Value
 };
 
 
@@ -47,6 +72,21 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UStaticMesh* Mesh = nullptr;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool Enabled = true;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float Spacing = 1.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector Offset;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector Scale;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FSplineToolkitRuleModifier> Modifiers;
 };
 
 /// Extrusion rule for its matching component
@@ -145,8 +185,6 @@ class USplineToolkitRulesetFactory : public UFactory
 public:
 	USplineToolkitRulesetFactory(const FObjectInitializer& ObjectInitializer);
 
-	//~ Begin UFactory Interface
 	virtual UObject* FactoryCreateNew(UClass*  Class, UObject*            InParent, FName Name, EObjectFlags Flags,
 	                                  UObject* Context, FFeedbackContext* Warn) override;
-	//~ End UFactory Interface
 };
