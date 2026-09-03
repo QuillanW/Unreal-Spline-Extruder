@@ -26,6 +26,8 @@ public class SplineToolkit : ModuleRules
 			new string[]
 			{
 				"Core",
+				"AssetDefinition",
+				"UnrealEd",
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);

@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include "AssetDefinitionDefault.h"
 #include "CoreMinimal.h"
+#include "Engine/DataAsset.h"
 #include "SplineToolKitRuleset.generated.h"
 
 // ===============================
@@ -92,12 +94,12 @@ public:
 //            RULESET
 // ===============================
 
-USTRUCT(BlueprintType)
-struct SPLINETOOLKIT_API FSplineToolkitRuleset
+UCLASS(BlueprintType)
+class SPLINETOOLKIT_API USplineToolkitRuleset : public UPrimaryDataAsset
 {
-public:
   GENERATED_BODY()
   
+public:
   UPROPERTY(EditAnywhere, BlueprintReadWrite)
   TArray<FSplineToolkitInstantiationRule> InstantiationRules = {};
   
@@ -109,4 +111,40 @@ public:
   
   UPROPERTY(EditAnywhere, BlueprintReadWrite)
   TArray<FSplineToolkitPlacementRule> PlacementRules = {};
+};
+
+#if WITH_EDITOR
+
+
+UCLASS()
+class UAssetDefinition_SplineToolkitRuleset: public UAssetDefinitionDefault
+{
+  GENERATED_BODY()
+	 
+public:
+  virtual TSoftClassPtr<UObject>GetAssetClass() const override {return USplineToolkitRuleset::StaticClass();}
+  virtual FText GetAssetDisplayName() const override {return FText::FromString("Spline Ruleset");}
+  virtual FLinearColor GetAssetColor() const override {return FLinearColor::FromSRGBColor(FColor::FromHex("#234287"));}
+  virtual TConstArrayView<FAssetCategoryPath> GetAssetCategories() const override
+  {
+    static const FAssetCategoryPath Categories[] = {FText::FromString("Data")};
+    return Categories;
+  }
+};
+
+#endif
+
+UCLASS(HideCategories = Object)
+class USplineToolkitRulesetFactory : public UFactory
+{
+  
+  
+  GENERATED_BODY()
+	 
+public:
+  USplineToolkitRulesetFactory(const FObjectInitializer& ObjectInitializer);
+  
+  //~ Begin UFactory Interface
+  virtual UObject* FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn) override;
+  //~ End UFactory Interface
 };
