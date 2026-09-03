@@ -5,7 +5,7 @@
 #include "AssetDefinitionDefault.h"
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-#include "SplineToolKitRuleset.generated.h"
+#include "SplineToolkitRuleset.generated.h"
 
 // ===============================
 //         GENERIC TYPES
@@ -150,32 +150,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FSplineToolkitPlacementRule> PlacementRules = {};
 };
-
-#if WITH_EDITOR
-
-
-UCLASS()
-class UAssetDefinition_SplineToolkitRuleset : public UAssetDefinitionDefault
-{
-	GENERATED_BODY()
-
-public:
-	virtual TSoftClassPtr<UObject> GetAssetClass() const override { return USplineToolkitRuleset::StaticClass(); }
-	virtual FText                  GetAssetDisplayName() const override { return FText::FromString("Spline Ruleset"); }
-
-	virtual FLinearColor GetAssetColor() const override
-	{
-		return FLinearColor::FromSRGBColor(FColor::FromHex("#234287"));
-	}
-
-	virtual TConstArrayView<FAssetCategoryPath> GetAssetCategories() const override
-	{
-		static const FAssetCategoryPath Categories[] = {FText::FromString("Data")};
-		return Categories;
-	}
-};
-
-#endif
 
 UCLASS(HideCategories = Object)
 class USplineToolkitRulesetFactory : public UFactory
