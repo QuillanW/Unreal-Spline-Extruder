@@ -1,0 +1,21 @@
+name: Feature
+description: A request for a new feature
+title: 'Feature: '
+labels: []
+assignees: []
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: A concise description of what needs to be added.
+    validations:
+      required: true
+
+  - type: textarea
+    id: dod
+    attributes:
+      label: DoD
+      description: A list of things that need to be there to mark this as done.
+    validations:
+      required: true

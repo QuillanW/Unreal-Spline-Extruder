@@ -1,0 +1,13 @@
+name: Goal
+description: A simple milestone goal
+title: 'Goal: '
+labels: []
+assignees: []
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: A concise description of what needs to be added.
+    validations:
+      required: true

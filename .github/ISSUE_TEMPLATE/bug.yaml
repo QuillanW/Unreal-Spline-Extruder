@@ -1,0 +1,59 @@
+name: Bug
+description: A report of unexpected behaviour
+title: 'Bug: '
+labels: []
+assignees: []
+body:
+  - type: checkboxes
+    id: affects
+    attributes:
+      label: Affects
+      description: Please check all areas of the engine that are affected by this bug
+      options:
+        - label: Instantiation
+          required: false
+        - label: Extrusion
+          required: false
+        - label: Intersection Area Calculation
+          required: false
+        - label: Intersection Filling
+          required: false
+        - label: Tooling
+          required: false
+  - type: textarea
+    id: behaviour
+    attributes:
+      label: Description
+      description: A concise description of what you're experiencing.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps To Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        * Run the engine...
+        * ...
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Expected Behavior
+      description: A concise description of what you expected to happen.
+    validations:
+      required: false
+  - type: upload
+    id: imagery
+    attributes:
+      label: Imagery
+      description: Any images/videos that make the bug more clear
+    validations:
+      required: false
+      accept: ".png,.jpg,.jpeg,.gif,.svg,.webp,.mp4,.mov,.webm"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Part of the log that indicates the issue if relevant
+    validations:
+      required: false
