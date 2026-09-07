@@ -10,6 +10,8 @@ void FSplineToolkitRulesetEditorModule::StartupModule()
 {
 	RulesetAssetDefinition = MakeShared<FSplineToolkitRulesetTypeActions>();
 	FAssetToolsModule::GetModule().Get().RegisterAssetTypeActions(RulesetAssetDefinition.ToSharedRef());
+	
+	ToolbarExtensibilityManager = MakeShareable(new FExtensibilityManager);
 }
 
 void FSplineToolkitRulesetEditorModule::ShutdownModule()

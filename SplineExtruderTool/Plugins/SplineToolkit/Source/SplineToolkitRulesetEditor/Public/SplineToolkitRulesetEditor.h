@@ -26,7 +26,10 @@ public:
 	/** IModuleInterface implementation */
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
+	
+	virtual TSharedPtr<class FExtensibilityManager> GetEditorToolbarExtensibilityManager() { return ToolbarExtensibilityManager; }
 
 private:
 	TSharedPtr<FSplineToolkitRulesetTypeActions> RulesetAssetDefinition;
+	TSharedPtr<FExtensibilityManager> ToolbarExtensibilityManager;
 };
