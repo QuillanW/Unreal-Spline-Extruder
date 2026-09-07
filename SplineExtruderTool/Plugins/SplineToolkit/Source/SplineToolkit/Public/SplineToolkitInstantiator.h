@@ -29,12 +29,18 @@ public:
 	TickComponent(float                        DeltaTime, ELevelTick TickType,
 	              FActorComponentTickFunction* ThisTickFunction) override;
 
-	UFUNCTION(CallInEditor, Category = "Spline Toolkit")
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit")
 	void Regenerate();
+	
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit")
+	void Clear();
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
-	USplineToolkitRuleset* Ruleset;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
+	USplineToolkitRuleset* Ruleset = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	USplineComponent* SplineComponent = nullptr;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	TArray<TObjectPtr<AActor>> SpawnedInstancedMeshes = {};
 };

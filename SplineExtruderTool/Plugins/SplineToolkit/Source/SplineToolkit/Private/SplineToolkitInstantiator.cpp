@@ -50,4 +50,50 @@ void USplineToolkitInstantiator::TickComponent(
 
 void USplineToolkitInstantiator::Regenerate()
 {
+	// Clean up old objects
+	for (const auto& actor : SpawnedInstancedMeshes)
+		actor->Destroy();
+	
+	SpawnedInstancedMeshes.Empty();
+	
+	// Go over each rule
+	for (const auto& rule : Ruleset->InstantiationRules)
+	{
+		// Loop over the spline at a set distance of precision. Applying the rules at each point
+		const auto length = SplineComponent->GetSplineLength();
+		
+		for (float current = 0.0f; current <= length; current += rule.Spacing)
+		{
+			const auto pos = SplineComponent->GetWorldLocationAtDistanceAlongSpline(current);
+			const auto rot = SplineComponent->GetWorldRotationAtDistanceAlongSpline(current);
+
+			FActorSpawnParameters SpawnParams;
+			AActor* NewActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), pos, rot, SpawnParams);
+
+			if (NewActor)
+			{
+				SpawnedInstancedMeshes.Add(NewActor);
+				
+				UStaticMeshComponent* NewMeshComp = NewObject<UStaticMeshComponent>(NewActor);
+				NewMeshComp->SetStaticMesh(rule.Mesh);
+				NewMeshComp->RegisterComponent();
+				NewActor->SetRootComponent(NewMeshComp);
+				NewActor->SetActorLocationAndRotation(pos, rot);
+
+#if WITH_EDITOR
+				NewActor->SetFolderPath(FName("Instanced Meshes"));
+#endif
+			}
+		}
+		
+	}
+}
+
+void USplineToolkitInstantiator::Clear()
+{
+	// Clean up old objects
+	for (const auto& actor : SpawnedInstancedMeshes)
+		actor->Destroy();
+	
+	SpawnedInstancedMeshes.Empty();
 }
