@@ -2,7 +2,7 @@
 	"FileVersion": 3,
 	"Version": 1,
 	"VersionName": "1.0",
-	"FriendlyName": "SplineToolkit",
+	"FriendlyName": "Spline Toolkit",
 	"Description": "",
 	"Category": "Other",
 	"CreatedBy": "",
@@ -18,6 +18,11 @@
 		{
 			"Name": "SplineToolkit",
 			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "SplineToolkitRulesetEditor",
+			"Type": "Editor",
 			"LoadingPhase": "Default"
 		}
 	]
