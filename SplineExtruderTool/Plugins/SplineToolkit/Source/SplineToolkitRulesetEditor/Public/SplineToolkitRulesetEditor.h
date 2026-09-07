@@ -5,7 +5,7 @@
 #include "AssetTypeActions_Base.h"
 #include "SplineToolkit/Public/SplineToolkitRuleset.h"
 #include "Modules/ModuleManager.h"
-#include "SplineToolkitRulesetEditor.generated.h"
+// #include "SplineToolkitRulesetEditor.generated.h"
 
 /// Based on:
 /// https://dev.epicgames.com/community/learning/tutorials/vyKB/unreal-engine-creating-a-custom-asset-type-with-its-own-editor-in-c
@@ -17,6 +17,8 @@ public:
 	FText GetName() const override { return INVTEXT("Spline Ruleset"); }
 	FColor GetTypeColor() const override { return FColor::FromHex("#234287"); }
 	uint32 GetCategories() override { return EAssetTypeCategories::Misc; }
+	
+	virtual void OpenAssetEditor(const TArray<UObject*>& InObjects, TSharedPtr<class IToolkitHost> EditWithinLevelEditor) override;
 };
 
 class FSplineToolkitRulesetEditorModule : public IModuleInterface

@@ -129,7 +129,7 @@ void FSplineToolkitRulesetEditorToolkit::ExtendToolbars()
 	
 	AddToolbarExtender(ToolbarExtender);
 	
-	FSplineToolkitRulesetEditorModule* AssetEditorTemplateModule = &FModuleManager::LoadModuleChecked<FSplineToolkitRulesetEditorModule>("AssetEditorTemplateEditor");
+	FSplineToolkitRulesetEditorModule* AssetEditorTemplateModule = &FModuleManager::LoadModuleChecked<FSplineToolkitRulesetEditorModule>("SplineToolkitRulesetEditor");
 	AddToolbarExtender(AssetEditorTemplateModule->GetEditorToolbarExtensibilityManager()->GetAllExtenders());
 
 	RegenerateMenusAndToolbars();

@@ -3,9 +3,26 @@
 #include "SplineToolkitRulesetEditor/Public/SplineToolkitRulesetEditor.h"
 
 #include "AssetToolsModule.h"
+#include "Viewport/SplineToolkitRulesetEditorToolkit.h"
 
 #define LOCTEXT_NAMESPACE "FSplineToolkitModule"
 
+void FSplineToolkitRulesetTypeActions::OpenAssetEditor(
+    const TArray<UObject *> &InObjects,
+    TSharedPtr<class IToolkitHost> EditWithinLevelEditor) {
+	
+	const EToolkitMode::Type Mode =
+		EditWithinLevelEditor.IsValid() ? EToolkitMode::WorldCentric : EToolkitMode::Standalone;
+
+	for (auto ObjIt = InObjects.CreateConstIterator(); ObjIt; ++ObjIt)
+	{
+		if (USplineToolkitRuleset* PoseSearchDb = Cast<USplineToolkitRuleset>(*ObjIt))
+		{
+			const TSharedRef<FSplineToolkitRulesetEditorToolkit> NewEditor(new FSplineToolkitRulesetEditorToolkit());
+			NewEditor->InitAssetEditor(Mode, EditWithinLevelEditor, PoseSearchDb);
+		}
+	}
+}
 void FSplineToolkitRulesetEditorModule::StartupModule()
 {
 	RulesetAssetDefinition = MakeShared<FSplineToolkitRulesetTypeActions>();
