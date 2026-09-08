@@ -23,6 +23,11 @@ void USplineToolkitInstantiator::BeginPlay()
 	// ...
 }
 
+void USplineToolkitInstantiator::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+}
+
 void USplineToolkitInstantiator::OnRegister()
 {
 	Super::OnRegister();
@@ -79,10 +84,9 @@ void USplineToolkitInstantiator::Regenerate()
 				NewMeshComp->RegisterComponent();
 				NewActor->SetRootComponent(NewMeshComp);
 				NewActor->SetActorLocationAndRotation(pos, rot);
-
-#if WITH_EDITOR
-				NewActor->SetFolderPath(FName("Instanced Meshes"));
-#endif
+				
+				NewActor->AttachToActor(this->GetOwner(), FAttachmentTransformRules::KeepWorldTransform);
+				
 			}
 		}
 		
