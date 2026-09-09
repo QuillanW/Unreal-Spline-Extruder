@@ -31,6 +31,11 @@ void USplineToolkitInstantiator::EndPlay(const EEndPlayReason::Type EndPlayReaso
 void USplineToolkitInstantiator::OnRegister()
 {
 	Super::OnRegister();
+	
+	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bTickEvenWhenPaused = true;
+	PrimaryComponentTick.bStartWithTickEnabled = true;
+	bTickInEditor = true;
 
 	if (AActor* Owner = GetOwner())
 	{
@@ -42,20 +47,19 @@ void USplineToolkitInstantiator::OnRegister()
 		SplineComponent = Owner->GetComponentByClass<USplineComponent>();
 		SplineComponent->GetOnSplineChanged().AddLambda([this]{ if (AutoUpdate) Regenerate(); });
 	}
+	
+	if (Ruleset->IsValidLowLevel())
+		Ruleset->OnChanged.AddLambda([this]
+		{
+			if (AutoUpdate)
+				Regenerate();
+		});
 }
 
-// Called every frame
-void USplineToolkitInstantiator::TickComponent(
-	float                        DeltaTime, ELevelTick TickType,
-	FActorComponentTickFunction* ThisTickFunction)
+void USplineToolkitInstantiator::RegenerateInternal()
 {
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// ...
-}
-
-void USplineToolkitInstantiator::Regenerate()
-{
+	bRegenerate = false;
+	
 	// Clean up old objects
 	for (const auto& actor : SpawnedInstancedMeshes)
 		actor->Destroy();
@@ -94,6 +98,29 @@ void USplineToolkitInstantiator::Regenerate()
 	}
 }
 
+void USplineToolkitInstantiator::OnComponentDestroyed(bool bDestroyingHierarchy)
+{
+	Super::OnComponentDestroyed(bDestroyingHierarchy);
+	
+	Clear();
+}
+
+// Called every frame
+void USplineToolkitInstantiator::TickComponent(
+	float                        DeltaTime, ELevelTick TickType,
+	FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	if (bRegenerate)
+		RegenerateInternal();
+}
+
+void USplineToolkitInstantiator::Regenerate()
+{
+	bRegenerate = true;
+}
+
 void USplineToolkitInstantiator::Clear()
 {
 	// Clean up old objects
@@ -108,4 +135,11 @@ void USplineToolkitInstantiator::PostEditChangeProperty(FPropertyChangedEvent& P
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 	if (AutoUpdate)
 		Regenerate();
+	
+	if (Ruleset->IsValidLowLevel())
+		Ruleset->OnChanged.AddLambda([this]
+		{
+			if (AutoUpdate)
+				Regenerate();
+		});
 }

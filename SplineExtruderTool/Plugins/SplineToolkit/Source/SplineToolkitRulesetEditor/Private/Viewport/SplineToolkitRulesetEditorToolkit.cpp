@@ -1,4 +1,5 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Based on:
+// https://github.com/shaderwitch/AssetEditorTemplate
 
 
 #include "Viewport/SplineToolkitRulesetEditorToolkit.h"
@@ -90,6 +91,25 @@ void FSplineToolkitRulesetEditorToolkit::BindCommands()
 			return PreviewScene->AutoUpdate;
 		})
 	);
+
+	ToolkitCommands->MapAction(
+		Commands.SelectPreviewTrack,
+		FExecuteAction::CreateLambda([this] { PreviewScene->SetPreviewSpline(SplinePreview::Track); }),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateLambda([this]() { return PreviewScene->GetCurrentPreview() == SplinePreview::Track; })
+	);
+	ToolkitCommands->MapAction(
+		Commands.SelectPreviewBend,
+		FExecuteAction::CreateLambda([this] { PreviewScene->SetPreviewSpline(SplinePreview::SBend); }),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateLambda([this]() { return PreviewScene->GetCurrentPreview() == SplinePreview::SBend; })
+	);
+	ToolkitCommands->MapAction(
+		Commands.SelectPreviewLoop,
+		FExecuteAction::CreateLambda([this] { PreviewScene->SetPreviewSpline(SplinePreview::Loop); }),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateLambda([this]() { return PreviewScene->GetCurrentPreview() == SplinePreview::Loop; })
+	);
 }
 
 TSharedPtr<FSplineToolkitRulesetPreviewScene> FSplineToolkitRulesetEditorToolkit::CreatePreviewScene()
@@ -127,7 +147,7 @@ void FSplineToolkitRulesetEditorToolkit::ExtendToolbars()
 				NAME_None,
 				LOCTEXT("FocusViewport", "Focus Viewport"),
 				LOCTEXT("FocusViewportTooltip", "Focuses Viewport on selected Mesh"),
-				FSlateIcon()
+				FSlateIcon(FAppStyle::GetAppStyleSetName(), "Symbols.SearchGlass")
 			);
 
 			ToolbarBuilder.AddToolBarButton(
@@ -135,8 +155,18 @@ void FSplineToolkitRulesetEditorToolkit::ExtendToolbars()
 				NAME_None,
 				LOCTEXT("ToggleAutoUpdate", "Auto Update"),
 				LOCTEXT("ToggleAutoUpdateTooltip", "Toggle whether or not the preview should automatically update"),
-				FSlateIcon()
+				FSlateIcon(FAppStyle::GetAppStyleSetName(), "AnimEditor.RefreshButton")
 			);
+
+			ToolbarBuilder.AddToolBarButton(FAssetEditorTemplateCommands::Get().SelectPreviewTrack, NAME_None,
+			                                TAttribute<FText>(), TAttribute<FText>(),
+			                                FSlateIcon(FAppStyle::GetAppStyleSetName(), "GenericPlay"));
+			ToolbarBuilder.AddToolBarButton(FAssetEditorTemplateCommands::Get().SelectPreviewBend, NAME_None,
+											TAttribute<FText>(), TAttribute<FText>(),
+											FSlateIcon(FAppStyle::GetAppStyleSetName(), "GenericPlay"));
+			ToolbarBuilder.AddToolBarButton(FAssetEditorTemplateCommands::Get().SelectPreviewLoop, NAME_None,
+											TAttribute<FText>(), TAttribute<FText>(),
+											FSlateIcon(FAppStyle::GetAppStyleSetName(), "GenericPlay"));
 
 			ToolbarBuilder.EndSection();
 		})
@@ -165,6 +195,7 @@ void FSplineToolkitRulesetEditorToolkit::ToggleAutoUpdate()
 	if (PreviewScene->AutoUpdate) // Force an update
 		PreviewScene->UpdatePreview();
 }
+
 
 void FSplineToolkitRulesetEditorToolkit::RegisterTabSpawners(const TSharedRef<FTabManager>& InTabManager)
 {

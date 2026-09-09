@@ -1,10 +1,18 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Based on:
+// https://github.com/shaderwitch/AssetEditorTemplate
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "AdvancedPreviewScene.h"
 #include "SplineToolkitRulesetEditorToolkit.h"
+
+enum class SplinePreview
+{
+	Track,
+	Loop,
+	SBend
+};
 
 /**
  * 
@@ -17,7 +25,13 @@ public:
 
 	virtual void Tick(float InDeltaTime) override;
 	
+	void UpdateSplinePreview(SplinePreview preview);
+	
 	void UpdatePreview();
+	
+	void SetPreviewSpline(SplinePreview preview);
+	
+	SplinePreview GetCurrentPreview() const { return CurrentPreview; }
 
 	TSharedRef<FSplineToolkitRulesetEditorToolkit> GetEditor() const
 	{
@@ -27,6 +41,8 @@ public:
 	TArray<AActor*> PreviewActors;
 	
 	bool AutoUpdate = true;
+	
+	SplinePreview CurrentPreview = SplinePreview::Track;
 	
 private:
 	TWeakPtr<FSplineToolkitRulesetEditorToolkit> EditorPtr;

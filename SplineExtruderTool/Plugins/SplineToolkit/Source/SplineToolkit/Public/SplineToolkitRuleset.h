@@ -149,6 +149,13 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FSplineToolkitPlacementRule> PlacementRules = {};
+	
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty( FPropertyChangedEvent & PropertyChangedEvent ) override;
+
+	DECLARE_EVENT( UMyDataAsset , FOnChanged );
+	FOnChanged OnChanged;
+#endif
 };
 
 UCLASS(HideCategories = Object)

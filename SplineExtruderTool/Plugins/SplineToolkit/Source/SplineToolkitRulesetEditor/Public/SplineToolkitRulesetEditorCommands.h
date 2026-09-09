@@ -1,4 +1,5 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Based on:
+// https://github.com/shaderwitch/AssetEditorTemplate
 
 #pragma once
 
@@ -21,6 +22,10 @@ public:
 	/** Focuses Viewport on Mesh */
 	TSharedPtr<FUICommandInfo> FocusViewport;
 	TSharedPtr<FUICommandInfo> ToggleAutoUpdate;
+	
+	TSharedPtr<FUICommandInfo> SelectPreviewTrack;
+	TSharedPtr<FUICommandInfo> SelectPreviewLoop;
+	TSharedPtr<FUICommandInfo> SelectPreviewBend;
 	
 	/** Initialize commands */
 	virtual void RegisterCommands() override;

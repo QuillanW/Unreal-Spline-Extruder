@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-// Based on:
+﻿// Based on:
 // https://github.com/shaderwitch/AssetEditorTemplate
 
 #pragma once
@@ -34,6 +32,8 @@ public:
 	void FocusViewport() const;
 	void ToggleAutoUpdate();
 	
+	
+	
 	TSharedPtr<FSplineToolkitRulesetPreviewScene> CreatePreviewScene();
 	/* End Simple Asset Editor methods */
 	
@@ -50,9 +50,11 @@ public:
 	TSharedRef<SDockTab> SpawnTab_Viewport(const FSpawnTabArgs& Args) const;
 	
 	USplineToolkitRuleset* GetRuleset() const { return SplineToolkitRuleset; }
+	
+	TSharedPtr<SSplineToolkitRulesetViewport> GetViewport() { return PreviewViewportWidget; }
 
 private:
-
+	
 	USplineToolkitRuleset* SplineToolkitRuleset;
 	TSharedPtr<FSplineToolkitRulesetPreviewScene> PreviewScene;
 	TSharedPtr<SSplineToolkitRulesetViewport> PreviewViewportWidget;

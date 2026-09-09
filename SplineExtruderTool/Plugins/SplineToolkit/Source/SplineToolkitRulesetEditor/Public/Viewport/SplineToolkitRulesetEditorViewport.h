@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-// Based on:
+﻿// Based on:
 // https://github.com/shaderwitch/AssetEditorTemplate
 
 #pragma once

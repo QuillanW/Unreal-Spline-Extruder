@@ -22,8 +22,14 @@ public:
 	
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
+	
 protected:
 	virtual void OnRegister() override;
+	
+	void RegenerateInternal();
+	
+	bool bRegenerate = false;
 
 public:
 	// Called every frame
@@ -48,8 +54,6 @@ public:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	TArray<TObjectPtr<AActor>> SpawnedInstancedMeshes = {};
-	
-	
 	
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
