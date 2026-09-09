@@ -21,9 +21,9 @@ FSplineToolkitRulesetEditorToolkit::~FSplineToolkitRulesetEditorToolkit()
 {
 }
 
-void FSplineToolkitRulesetEditorToolkit::InitAssetEditor(const EToolkitMode::Type        Mode,
+void FSplineToolkitRulesetEditorToolkit::InitAssetEditor(const EToolkitMode::Type Mode,
                                                          const TSharedPtr<IToolkitHost>& InitToolkitHost,
-                                                         USplineToolkitRuleset*          InSplineToolkitRuleset)
+                                                         USplineToolkitRuleset* InSplineToolkitRuleset)
 {
 	BindCommands();
 
@@ -81,8 +81,15 @@ void FSplineToolkitRulesetEditorToolkit::BindCommands()
 	ToolkitCommands->MapAction(Commands.FocusViewport,
 	                           FExecuteAction::CreateSP(this, &FSplineToolkitRulesetEditorToolkit::FocusViewport));
 
-	ToolkitCommands->MapAction(Commands.ToggleAutoUpdate,
-	                           FExecuteAction::CreateSP(this, &FSplineToolkitRulesetEditorToolkit::ToggleAutoUpdate));
+	ToolkitCommands->MapAction(
+		Commands.ToggleAutoUpdate,
+		FExecuteAction::CreateSP(this, &FSplineToolkitRulesetEditorToolkit::ToggleAutoUpdate),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateLambda([this]
+		{
+			return PreviewScene->AutoUpdate;
+		})
+	);
 }
 
 TSharedPtr<FSplineToolkitRulesetPreviewScene> FSplineToolkitRulesetEditorToolkit::CreatePreviewScene()
@@ -152,7 +159,7 @@ void FSplineToolkitRulesetEditorToolkit::FocusViewport() const
 	}
 }
 
-void FSplineToolkitRulesetEditorToolkit::ToggleAutoUpdate() const
+void FSplineToolkitRulesetEditorToolkit::ToggleAutoUpdate()
 {
 	PreviewScene->AutoUpdate = !PreviewScene->AutoUpdate;
 	if (PreviewScene->AutoUpdate) // Force an update

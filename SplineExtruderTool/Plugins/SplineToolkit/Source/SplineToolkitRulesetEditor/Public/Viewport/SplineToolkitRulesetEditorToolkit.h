@@ -32,7 +32,7 @@ public:
 	void ExtendToolbars();
 	
 	void FocusViewport() const;
-	void ToggleAutoUpdate() const;
+	void ToggleAutoUpdate();
 	
 	TSharedPtr<FSplineToolkitRulesetPreviewScene> CreatePreviewScene();
 	/* End Simple Asset Editor methods */
