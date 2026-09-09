@@ -100,6 +100,12 @@ public:
 	UStaticMesh* Mesh = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector Offset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector Scale = FVector::OneVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 NumRmfSamples = 128;
 };
 

@@ -35,7 +35,8 @@ void USplineToolkitMeshExtruder::OnRegister()
 		this->SplineComponent = Owner->GetComponentByClass<USplineComponent>();
 		this->SplineComponent->GetOnSplineChanged().AddLambda([this]()
 		{
-			Regenerate();
+			if (bUpdateOnSplineChange)
+				Regenerate();
 		});
 	}
 
@@ -106,7 +107,7 @@ void USplineToolkitMeshExtruder::Regenerate()
 		RecalculateRmfSamples(Rule.NumRmfSamples, Data);
 		ExtractOriginSlice(Rule.Mesh, Data);
 		if (!Data.OriginSlice.IsEmpty())
-			ComputeMesh(Rule.NumRmfSamples, MeshComponent, Data);
+			ComputeMesh(Rule, MeshComponent, Data);
 	}
 }
 
@@ -470,18 +471,18 @@ TArray<int32> USplineToolkitMeshExtruder::ReorderToLoop(const FRawStaticIndexBuf
 }
 
 
-void USplineToolkitMeshExtruder::ComputeMesh(int32 NumRmfSamples, UProceduralMeshComponent* MeshComponent,
+void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& Rule, UProceduralMeshComponent* MeshComponent,
                                              const FSplineToolkitExtruderMeshData& Data) const
 {
 	FSplineToolkitExtruderDrawData DrawData{};
-	DrawData.Init((NumRmfSamples + 2) * Data.OriginSlice.Num());
+	DrawData.Init((Rule.NumRmfSamples + 2) * Data.OriginSlice.Num());
 
 	const float TotalSplineDistance = this->SplineComponent->GetSplineLength();
 
 	uint32 VertexPtr = 0;
-	for (int32 I = -1; I < NumRmfSamples + 1; ++I)
+	for (int32 I = -1; I < Rule.NumRmfSamples + 1; ++I)
 	{
-		const auto& Sample = Data.RmfSamples[FMath::Clamp(I, 0, NumRmfSamples - 1)];
+		const auto& Sample = Data.RmfSamples[FMath::Clamp(I, 0, Rule.NumRmfSamples - 1)];
 
 		// Instantiate a slice per sample
 		DrawData.Insert(Data.OriginSlice, VertexPtr);
@@ -492,15 +493,15 @@ void USplineToolkitMeshExtruder::ComputeMesh(int32 NumRmfSamples, UProceduralMes
 			FVector::ZeroVector
 		};
 		FTransform Transform;
-		Transform.SetComponents(Rotation.ToQuat(), Sample.Position, FVector::OneVector);
+		Transform.SetComponents(Rotation.ToQuat(), Sample.Position, Rule.Scale);
 
 		// Transform all vertices with this matrix
 		for (int32 Vertex = 0; Vertex < Data.OriginSlice.Num(); ++Vertex, ++VertexPtr)
 		{
-			DrawData.Positions[VertexPtr] = Transform.TransformPosition(DrawData.Positions[VertexPtr]);
+			DrawData.Positions[VertexPtr] = Transform.TransformPosition(DrawData.Positions[VertexPtr] + Rule.Offset);
 			if (I == -1)
 				DrawData.Normals[VertexPtr] = -Sample.Tangent;
-			else if (I == NumRmfSamples)
+			else if (I == Rule.NumRmfSamples)
 				DrawData.Normals[VertexPtr] = Sample.Tangent;
 			else
 				DrawData.Normals[VertexPtr] = Transform.TransformVector(DrawData.Normals[VertexPtr]);
@@ -517,10 +518,10 @@ void USplineToolkitMeshExtruder::ComputeMesh(int32 NumRmfSamples, UProceduralMes
 	const int32 EdgesPerRing = SliceCount;
 
 	// Start and end cap
-	const uint32 NumConnectionsIndices = (NumRmfSamples + 1) * Data.OriginSlice.Num() * 6;
+	const uint32 NumConnectionsIndices = (Rule.NumRmfSamples + 1) * Data.OriginSlice.Num() * 6;
 
 	const auto StartCap = ComputeEndCap(Data, 0, true);
-	const auto EndCap = ComputeEndCap(Data, (NumRmfSamples + 1) * Data.OriginSlice.Num(), false);
+	const auto EndCap = ComputeEndCap(Data, (Rule.NumRmfSamples + 1) * Data.OriginSlice.Num(), false);
 
 	TArray<int32> Indices{};
 
@@ -533,7 +534,7 @@ void USplineToolkitMeshExtruder::ComputeMesh(int32 NumRmfSamples, UProceduralMes
 
 	// Linking samples
 	uint32 Ptr = StartCap.Num();
-	for (uint32 SampleIdx = 0; SampleIdx < static_cast<uint32>(NumRmfSamples) + 1; ++SampleIdx)
+	for (uint32 SampleIdx = 0; SampleIdx < static_cast<uint32>(Rule.NumRmfSamples) + 1; ++SampleIdx)
 	{
 		const uint32 CurrentRing = SampleIdx * SliceCount;
 		const uint32 NextRing = (SampleIdx + 1) * SliceCount;

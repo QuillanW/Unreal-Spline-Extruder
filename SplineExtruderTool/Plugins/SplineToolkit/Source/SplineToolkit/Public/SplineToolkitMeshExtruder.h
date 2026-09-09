@@ -70,7 +70,8 @@ struct FSplineToolkitExtruderMeshData
  * This is an alternative to USplineMeshComponent that allows the use of SplineToolkit's modifiers and intersection rules
  */
 UCLASS(ClassGroup=(Custom),
-	meta=(BlueprintSpawnableComponent, ToolTip="A component that extrudes a given mesh along a given spline"))
+	meta=(BlueprintSpawnableComponent, ToolTip="A component that extrudes a given mesh along a given spline"),
+	DisplayName="[Spline Toolkit] Mesh Extruder")
 class SPLINETOOLKIT_API USplineToolkitMeshExtruder : public UActorComponent
 {
 	GENERATED_BODY()
@@ -88,10 +89,13 @@ public:
 	UFUNCTION(CallInEditor, Category = "Spline Toolkit")
 	void Clear();
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
+	bool bUpdateOnSplineChange = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	USplineToolkitRuleset* Ruleset = nullptr;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	USplineComponent* SplineComponent = nullptr;
 
 private:
@@ -108,6 +112,6 @@ private:
 	static TArray<int32> ReorderToLoop(const FRawStaticIndexBuffer& GeometryIndexBuffer, const TArray<FVector>& Positions, const TMap<int32, TArray<int32>>&
 	                                   UsedIndices);
 
-	void ComputeMesh(int32 NumRmfSamples, UProceduralMeshComponent* MeshComponent, const FSplineToolkitExtruderMeshData& Data) const;
+	void ComputeMesh(const FSplineToolkitExtrusionRule& Rule, UProceduralMeshComponent* MeshComponent, const FSplineToolkitExtruderMeshData& Data) const;
 
 };
