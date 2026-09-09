@@ -45,7 +45,7 @@ void USplineToolkitInstantiator::OnRegister()
 
 // Called every frame
 void USplineToolkitInstantiator::TickComponent(
-	float                        DeltaTime, ELevelTick TickType,
+	float DeltaTime, ELevelTick TickType,
 	FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -56,40 +56,63 @@ void USplineToolkitInstantiator::TickComponent(
 void USplineToolkitInstantiator::Regenerate()
 {
 	// Clean up old objects
-	for (const auto& actor : SpawnedInstancedMeshes)
-		actor->Destroy();
-	
+	for (const auto& Actor : SpawnedInstancedMeshes)
+		Actor->Destroy();
+
 	SpawnedInstancedMeshes.Empty();
-	
+
+	// Get total length to step over
+	const auto TotalLen = SplineComponent->GetSplineLength();
+
 	// Go over each rule
-	for (const auto& rule : Ruleset->InstantiationRules)
+	for (const auto& Rule : Ruleset->InstantiationRules)
 	{
 		// Loop over the spline at a set distance of precision. Applying the rules at each point
-		const auto length = SplineComponent->GetSplineLength();
-		
-		for (float current = 0.0f; current <= length; current += rule.Spacing)
+		for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += fmax(Rule.StepPrecision, 1.0f))
 		{
-			const auto pos = SplineComponent->GetWorldLocationAtDistanceAlongSpline(current);
-			const auto rot = SplineComponent->GetWorldRotationAtDistanceAlongSpline(current);
+			// TODO: Apply modifiers
+			const auto ModdedRule = Rule;
+
+			// Check if enabled (Can be changed by modifier, so checking each step)
+			if (!ModdedRule.Enabled)
+				continue;
+
+			// Check if spacing is reached
+			const float offset = fmodf(CurrentDist, ModdedRule.Spacing);
+			if (offset >= ModdedRule.StepPrecision)
+				continue;
+
+			const auto Pos = SplineComponent->GetWorldLocationAtDistanceAlongSpline(CurrentDist);
+			const auto Rot = SplineComponent->GetWorldRotationAtDistanceAlongSpline(CurrentDist);
+
+			const auto Fwd = SplineComponent->GetDirectionAtDistanceAlongSpline(
+				CurrentDist, ESplineCoordinateSpace::World);
+			const auto Rht = SplineComponent->GetRightVectorAtDistanceAlongSpline(
+				CurrentDist, ESplineCoordinateSpace::World);
+			const auto Up = SplineComponent->GetUpVectorAtDistanceAlongSpline(
+				CurrentDist, ESplineCoordinateSpace::World);
 
 			FActorSpawnParameters SpawnParams;
-			AActor* NewActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), pos, rot, SpawnParams);
+			AActor* NewActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), Pos, Rot, SpawnParams);
 
 			if (NewActor)
 			{
 				SpawnedInstancedMeshes.Add(NewActor);
+
+				FVector Offset = Rht * ModdedRule.Offset.X;
+				Offset += Fwd * ModdedRule.Offset.Y;
+				Offset += Up * ModdedRule.Offset.Z;
 				
 				UStaticMeshComponent* NewMeshComp = NewObject<UStaticMeshComponent>(NewActor);
-				NewMeshComp->SetStaticMesh(rule.Mesh);
+				NewMeshComp->SetStaticMesh(ModdedRule.Mesh);
 				NewMeshComp->RegisterComponent();
 				NewActor->SetRootComponent(NewMeshComp);
-				NewActor->SetActorLocationAndRotation(pos, rot);
-				
+				NewActor->SetActorLocationAndRotation(Pos + Offset, Rot);
+				NewActor->SetActorScale3D(ModdedRule.Scale);
+
 				NewActor->AttachToActor(this->GetOwner(), FAttachmentTransformRules::KeepWorldTransform);
-				
 			}
 		}
-		
 	}
 }
 
@@ -98,6 +121,6 @@ void USplineToolkitInstantiator::Clear()
 	// Clean up old objects
 	for (const auto& actor : SpawnedInstancedMeshes)
 		actor->Destroy();
-	
+
 	SpawnedInstancedMeshes.Empty();
 }

@@ -74,16 +74,19 @@ public:
 	UStaticMesh* Mesh = nullptr;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float StepPrecision = 1.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool Enabled = true;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float Spacing = 1.0f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FVector Offset;
+	FVector Offset = FVector::ZeroVector;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FVector Scale;
+	FVector Scale = FVector::OneVector;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FSplineToolkitRuleModifier> Modifiers;
