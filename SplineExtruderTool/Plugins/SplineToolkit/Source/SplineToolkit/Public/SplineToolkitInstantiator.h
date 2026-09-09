@@ -8,7 +8,7 @@
 #include "SplineToolkitRuleset.h"
 #include "SplineToolkitInstantiator.generated.h"
 
-UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent), DisplayName = "[Spline Toolkit] Mesh Instantiator")
 class SPLINETOOLKIT_API USplineToolkitInstantiator : public UActorComponent
 {
 	GENERATED_BODY()
