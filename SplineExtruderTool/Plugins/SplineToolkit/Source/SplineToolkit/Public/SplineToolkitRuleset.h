@@ -98,6 +98,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UStaticMesh* Mesh = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 NumRmfSamples = 128;
 };
 
 /// Stretching rule for its matching component

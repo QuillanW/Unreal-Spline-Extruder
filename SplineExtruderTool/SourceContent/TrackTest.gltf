@@ -1,6 +1,6 @@
 {
 	"asset":{
-		"generator":"Khronos glTF Blender I/O v5.2.39",
+		"generator":"Khronos glTF Blender I/O v5.2.40",
 		"version":"2.0"
 	},
 	"scene":0,
@@ -15,12 +15,17 @@
 	"nodes":[
 		{
 			"mesh":0,
-			"name":"Cube"
+			"name":"Cube",
+			"scale":[
+				0.3999999761581421,
+				0.3999999761581421,
+				0.3999999761581421
+			]
 		}
 	],
 	"meshes":[
 		{
-			"name":"Cube.001",
+			"name":"Cube.003",
 			"primitives":[
 				{
 					"attributes":{
@@ -37,7 +42,7 @@
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":48,
+			"count":40,
 			"max":[
 				2,
 				0.699999988079071,
@@ -53,51 +58,51 @@
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":48,
+			"count":40,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":2,
 			"componentType":5126,
-			"count":48,
+			"count":40,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":3,
 			"componentType":5123,
-			"count":84,
+			"count":66,
 			"type":"SCALAR"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":576,
+			"byteLength":480,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":576,
-			"byteOffset":576,
+			"byteLength":480,
+			"byteOffset":480,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":384,
-			"byteOffset":1152,
+			"byteLength":320,
+			"byteOffset":960,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":168,
-			"byteOffset":1536,
+			"byteLength":132,
+			"byteOffset":1280,
 			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":1704,
+			"byteLength":1412,
 			"uri":"TrackTest.bin"
 		}
 	]
