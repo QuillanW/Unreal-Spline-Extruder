@@ -20,6 +20,7 @@ public:
 	
 	/** Focuses Viewport on Mesh */
 	TSharedPtr<FUICommandInfo> FocusViewport;
+	TSharedPtr<FUICommandInfo> ToggleAutoUpdate;
 	
 	/** Initialize commands */
 	virtual void RegisterCommands() override;

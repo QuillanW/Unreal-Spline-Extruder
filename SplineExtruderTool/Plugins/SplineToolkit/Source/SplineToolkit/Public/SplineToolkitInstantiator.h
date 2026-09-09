@@ -43,6 +43,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	USplineComponent* SplineComponent = nullptr;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
+	bool AutoUpdate = true;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	TArray<TObjectPtr<AActor>> SpawnedInstancedMeshes = {};
+	
+	
+	
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
 };

@@ -9,6 +9,7 @@
 void FAssetEditorTemplateCommands::RegisterCommands()
 {
 	UI_COMMAND(FocusViewport, "Focus Viewport", "Focus Viewport on Mesh", EUserInterfaceActionType::Button, FInputChord(EKeys::F));
+	UI_COMMAND(ToggleAutoUpdate, "Update Preview", "Toggle whether the preview should update when settings are changed", EUserInterfaceActionType::Button, FInputChord(EKeys::T));
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -16,13 +16,18 @@ public:
 	virtual ~FSplineToolkitRulesetPreviewScene() override;
 
 	virtual void Tick(float InDeltaTime) override;
+	
+	void UpdatePreview();
 
 	TSharedRef<FSplineToolkitRulesetEditorToolkit> GetEditor() const
 	{
 		return EditorPtr.Pin().ToSharedRef();
 	}
 
-	UStaticMeshComponent* PreviewComponent = nullptr;
+	TArray<AActor*> PreviewActors;
+	
+	bool AutoUpdate = true;
+	
 private:
 	TWeakPtr<FSplineToolkitRulesetEditorToolkit> EditorPtr;
 };

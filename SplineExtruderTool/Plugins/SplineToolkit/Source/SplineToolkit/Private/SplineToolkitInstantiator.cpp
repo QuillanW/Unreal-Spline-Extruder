@@ -11,7 +11,7 @@ USplineToolkitInstantiator::USplineToolkitInstantiator()
 	// every frame.  You can turn these features off to improve performance if you
 	// don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-
+	
 	// ...
 }
 
@@ -19,7 +19,7 @@ USplineToolkitInstantiator::USplineToolkitInstantiator()
 void USplineToolkitInstantiator::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
 	// ...
 }
 
@@ -40,6 +40,7 @@ void USplineToolkitInstantiator::OnRegister()
 			return;
 		}
 		SplineComponent = Owner->GetComponentByClass<USplineComponent>();
+		SplineComponent->GetOnSplineChanged().AddLambda([this]{ if (AutoUpdate) Regenerate(); });
 	}
 }
 
@@ -100,4 +101,11 @@ void USplineToolkitInstantiator::Clear()
 		actor->Destroy();
 	
 	SpawnedInstancedMeshes.Empty();
+}
+
+void USplineToolkitInstantiator::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	if (AutoUpdate)
+		Regenerate();
 }
