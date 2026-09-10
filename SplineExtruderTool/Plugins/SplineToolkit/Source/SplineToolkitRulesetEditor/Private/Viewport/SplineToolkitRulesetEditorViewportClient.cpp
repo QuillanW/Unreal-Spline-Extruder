@@ -1,4 +1,5 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Based on:
+// https://github.com/shaderwitch/AssetEditorTemplate
 
 
 #include "Viewport/SplineToolkitRulesetEditorViewportClient.h"

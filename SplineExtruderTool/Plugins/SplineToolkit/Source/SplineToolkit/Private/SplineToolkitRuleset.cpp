@@ -2,15 +2,25 @@
 
 #include "SplineToolkitRuleset.h"
 
-USplineToolkitRulesetFactory::USplineToolkitRulesetFactory(const FObjectInitializer& ObjectInitializer):Super(ObjectInitializer)
+#if WITH_EDITOR
+void USplineToolkitRuleset::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-  SupportedClass = USplineToolkitRuleset::StaticClass();
-  bCreateNew = true;
-  bEditorImport = false;
-  bEditAfterNew = true;
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	OnChanged.Broadcast();
+}
+#endif
+
+USplineToolkitRulesetFactory::USplineToolkitRulesetFactory(const FObjectInitializer& ObjectInitializer) : Super(
+	ObjectInitializer)
+{
+	SupportedClass = USplineToolkitRuleset::StaticClass();
+	bCreateNew = true;
+	bEditorImport = false;
+	bEditAfterNew = true;
 }
 
-UObject* USplineToolkitRulesetFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
+UObject* USplineToolkitRulesetFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name,
+                                                        EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
-  return NewObject<USplineToolkitRuleset>(InParent, Class, Name, Flags | RF_Transactional);
+	return NewObject<USplineToolkitRuleset>(InParent, Class, Name, Flags | RF_Transactional);
 }

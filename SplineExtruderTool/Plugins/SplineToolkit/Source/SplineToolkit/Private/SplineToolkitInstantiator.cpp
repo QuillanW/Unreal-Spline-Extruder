@@ -11,7 +11,7 @@ USplineToolkitInstantiator::USplineToolkitInstantiator()
 	// every frame.  You can turn these features off to improve performance if you
 	// don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-
+	
 	// ...
 }
 
@@ -19,7 +19,7 @@ USplineToolkitInstantiator::USplineToolkitInstantiator()
 void USplineToolkitInstantiator::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
 	// ...
 }
 
@@ -31,6 +31,11 @@ void USplineToolkitInstantiator::EndPlay(const EEndPlayReason::Type EndPlayReaso
 void USplineToolkitInstantiator::OnRegister()
 {
 	Super::OnRegister();
+	
+	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bTickEvenWhenPaused = true;
+	PrimaryComponentTick.bStartWithTickEnabled = true;
+	bTickInEditor = true;
 
 	if (AActor* Owner = GetOwner())
 	{
@@ -40,21 +45,24 @@ void USplineToolkitInstantiator::OnRegister()
 			return;
 		}
 		SplineComponent = Owner->GetComponentByClass<USplineComponent>();
+		SplineComponent->GetOnSplineChanged().AddLambda([this]{ if (AutoUpdate) Regenerate(); });
 	}
+	
+	if (Ruleset->IsValidLowLevel())
+		Ruleset->OnChanged.AddLambda([this]
+		{
+			if (AutoUpdate)
+				Regenerate();
+		});
 }
 
-// Called every frame
-void USplineToolkitInstantiator::TickComponent(
-	float DeltaTime, ELevelTick TickType,
-	FActorComponentTickFunction* ThisTickFunction)
+void USplineToolkitInstantiator::RegenerateInternal()
 {
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// ...
-}
-
-void USplineToolkitInstantiator::Regenerate()
-{
+	bRegenerate = false;
+	
+	if (!this->Ruleset->IsValidLowLevelFast())
+	    return;
+	
 	// Clean up old objects
 	for (const auto& Actor : SpawnedInstancedMeshes)
 		Actor->Destroy();
@@ -116,6 +124,29 @@ void USplineToolkitInstantiator::Regenerate()
 	}
 }
 
+void USplineToolkitInstantiator::OnComponentDestroyed(bool bDestroyingHierarchy)
+{
+	Super::OnComponentDestroyed(bDestroyingHierarchy);
+	
+	Clear();
+}
+
+// Called every frame
+void USplineToolkitInstantiator::TickComponent(
+	float                        DeltaTime, ELevelTick TickType,
+	FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	if (bRegenerate)
+		RegenerateInternal();
+}
+
+void USplineToolkitInstantiator::Regenerate()
+{
+	bRegenerate = true;
+}
+
 void USplineToolkitInstantiator::Clear()
 {
 	// Clean up old objects
@@ -123,4 +154,18 @@ void USplineToolkitInstantiator::Clear()
 		actor->Destroy();
 
 	SpawnedInstancedMeshes.Empty();
+}
+
+void USplineToolkitInstantiator::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	if (AutoUpdate)
+		Regenerate();
+	
+	if (Ruleset->IsValidLowLevel())
+		Ruleset->OnChanged.AddLambda([this]
+		{
+			if (AutoUpdate)
+				Regenerate();
+		});
 }
