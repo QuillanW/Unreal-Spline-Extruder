@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-// Based on:
+﻿// Based on:
 // https://github.com/shaderwitch/AssetEditorTemplate
 
 #pragma once
@@ -30,7 +28,12 @@ public:
 	/* Simple Asset Editor methods */
 	void BindCommands();
 	void ExtendToolbars();
+	
 	void FocusViewport() const;
+	void ToggleAutoUpdate();
+	
+	
+	
 	TSharedPtr<FSplineToolkitRulesetPreviewScene> CreatePreviewScene();
 	/* End Simple Asset Editor methods */
 	
@@ -39,15 +42,19 @@ public:
 	
 	/** IToolkit interface */
 	virtual FName GetToolkitFName() const override { return "SplineToolkitRulesetEditor"; };
-	virtual FText GetBaseToolkitName() const override { return INVTEXT("Simple Asset Editor"); };
-	virtual FString GetWorldCentricTabPrefix() const override { return "Simple Asset "; };
+	virtual FText GetBaseToolkitName() const override { return INVTEXT("Spline Toolkit Ruleset Editor"); };
+	virtual FString GetWorldCentricTabPrefix() const override { return "Spline Toolkit Ruleset "; };
 	virtual FLinearColor GetWorldCentricTabColorScale() const override { return {}; };
 	/** End IToolkit interface */
 	
 	TSharedRef<SDockTab> SpawnTab_Viewport(const FSpawnTabArgs& Args) const;
+	
+	USplineToolkitRuleset* GetRuleset() const { return SplineToolkitRuleset; }
+	
+	TSharedPtr<SSplineToolkitRulesetViewport> GetViewport() { return PreviewViewportWidget; }
 
 private:
-
+	
 	USplineToolkitRuleset* SplineToolkitRuleset;
 	TSharedPtr<FSplineToolkitRulesetPreviewScene> PreviewScene;
 	TSharedPtr<SSplineToolkitRulesetViewport> PreviewViewportWidget;
