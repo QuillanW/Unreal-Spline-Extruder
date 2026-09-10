@@ -60,6 +60,9 @@ void USplineToolkitInstantiator::RegenerateInternal()
 {
 	bRegenerate = false;
 	
+	if (!this->Ruleset->IsValidLowLevelFast())
+	    return;
+	
 	// Clean up old objects
 	for (const auto& actor : SpawnedInstancedMeshes)
 		actor->Destroy();
