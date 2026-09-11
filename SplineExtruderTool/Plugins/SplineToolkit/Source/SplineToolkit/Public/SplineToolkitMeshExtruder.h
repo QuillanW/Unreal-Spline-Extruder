@@ -83,11 +83,17 @@ public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType,
 	                           FActorComponentTickFunction* ThisTickFunction) override;
 
+	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
+
 	UFUNCTION(CallInEditor, Category = "Spline Toolkit")
 	void Regenerate();
 
+	/** Clears all linked actors */
 	UFUNCTION(CallInEditor, Category = "Spline Toolkit")
 	void Clear();
+
+	/** Clears out all data related to a rule but keeps old actors alive */
+	void ClearConservative();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	bool bUpdateOnSplineChange = false;
@@ -113,5 +119,9 @@ private:
 	                                   UsedIndices);
 
 	void ComputeMesh(const FSplineToolkitExtrusionRule& Rule, UProceduralMeshComponent* MeshComponent, const FSplineToolkitExtruderMeshData& Data) const;
+
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
 
 };

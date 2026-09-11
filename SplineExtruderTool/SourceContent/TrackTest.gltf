@@ -42,10 +42,10 @@
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":40,
+			"count":44,
 			"max":[
 				2,
-				0.699999988079071,
+				0.7024999856948853,
 				2
 			],
 			"min":[
@@ -58,51 +58,51 @@
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":40,
+			"count":44,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":2,
 			"componentType":5126,
-			"count":40,
+			"count":44,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":3,
 			"componentType":5123,
-			"count":66,
+			"count":84,
 			"type":"SCALAR"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":480,
+			"byteLength":528,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":480,
-			"byteOffset":480,
+			"byteLength":528,
+			"byteOffset":528,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":320,
-			"byteOffset":960,
+			"byteLength":352,
+			"byteOffset":1056,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":132,
-			"byteOffset":1280,
+			"byteLength":168,
+			"byteOffset":1408,
 			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":1412,
+			"byteLength":1576,
 			"uri":"TrackTest.bin"
 		}
 	]
