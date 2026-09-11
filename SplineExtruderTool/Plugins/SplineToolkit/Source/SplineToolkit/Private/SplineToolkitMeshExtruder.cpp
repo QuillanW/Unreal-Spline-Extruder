@@ -68,7 +68,7 @@ void USplineToolkitMeshExtruder::TickComponent(float DeltaTime, enum ELevelTick 
 		{
 			for (const auto& Sample : Data.RmfSamples)
 			{
-				FMatrix CoordinateMatrix{Sample.Tangent, Sample.Bitangent, Sample.Reference, FVector::ZeroVector};
+				FMatrix CoordinateMatrix{Sample.Bitangent.GetSafeNormal(), Sample.Tangent.GetSafeNormal(), Sample.Reference.GetSafeNormal(), FVector::ZeroVector};
 				DrawDebugCoordinateSystem(GetWorld(), Sample.Position + Data.MeshActor->GetActorLocation(),
 				                          CoordinateMatrix.Rotator(), 100.f, false, -1, 0,
 				                          3.f);
