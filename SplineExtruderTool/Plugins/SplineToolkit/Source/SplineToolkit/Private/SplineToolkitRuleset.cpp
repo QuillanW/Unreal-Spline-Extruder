@@ -20,7 +20,7 @@ USplineToolkitRulesetFactory::USplineToolkitRulesetFactory(const FObjectInitiali
 }
 
 UObject* USplineToolkitRulesetFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name,
-                                                        EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
+														EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
 	return NewObject<USplineToolkitRuleset>(InParent, Class, Name, Flags | RF_Transactional);
 }

@@ -4,9 +4,11 @@
 #include "Viewport/SplineToolkitRulesetEditorPreviewScene.h"
 
 #include "SplineToolkitInstantiator.h"
+#include "SplineToolkitMeshExtruder.h"
 #include "Components/SplineComponent.h"
 #include "GameFramework/WorldSettings.h"
 #include "Viewport/SplineToolkitRulesetEditorViewport.h"
+
 
 namespace
 {
@@ -16,11 +18,11 @@ namespace
 #pragma region Previews
 
 TArray<FVector> SBendPoints = {
-	FVector(0.f,    0.f,    0.f),
-	FVector(1000.f, 500.f,  0.f),
-	FVector(2000.f, 0.f,    0.f),
+	FVector(0.f, 0.f, 0.f),
+	FVector(1000.f, 500.f, 0.f),
+	FVector(2000.f, 0.f, 0.f),
 	FVector(3000.f, -500.f, 0.f),
-	FVector(4000.f, 0.f,    0.f)
+	FVector(4000.f, 0.f, 0.f)
 };
 
 TArray<FVector> SBendTangents = {
@@ -32,46 +34,46 @@ TArray<FVector> SBendTangents = {
 };
 
 TArray<FVector> LoopPoints = {
-	FVector(0.f,    0.f, 0.f),     // start
-	FVector(500.f,  0.f, 0.f),     // approach
-	FVector(900.f,  0.f, 0.f),     // loop bottom (entry)
+	FVector(0.f, 0.f, 0.f), // start
+	FVector(500.f, 0.f, 0.f), // approach
+	FVector(900.f, 0.f, 0.f), // loop bottom (entry)
 	FVector(1183.f, 0.f, 117.f),
-	FVector(1300.f, 0.f, 400.f),   // loop side
+	FVector(1300.f, 0.f, 400.f), // loop side
 	FVector(1183.f, 0.f, 683.f),
-	FVector(900.f,  0.f, 800.f),   // top of loop
-	FVector(617.f,  0.f, 683.f),
-	FVector(500.f,  0.f, 400.f),   // loop side
-	FVector(617.f,  0.f, 117.f),
-	FVector(900.f,  0.f, 0.f),     // loop bottom (exit)
-	FVector(1300.f, 0.f, 0.f)      // exit straight
+	FVector(900.f, 0.f, 800.f), // top of loop
+	FVector(617.f, 0.f, 683.f),
+	FVector(500.f, 0.f, 400.f), // loop side
+	FVector(617.f, 0.f, 117.f),
+	FVector(900.f, 0.f, 0.f), // loop bottom (exit)
+	FVector(1300.f, 0.f, 0.f) // exit straight
 };
 
 TArray<FVector> LoopTangents = {
-	FVector(300.f,  0.f, 0.f),
-	FVector(300.f,  0.f, 0.f),
-	FVector(300.f,  0.f, 0.f),
-	FVector(212.f,  0.f, 212.f),
-	FVector(0.f,    0.f, 300.f),
+	FVector(300.f, 0.f, 0.f),
+	FVector(300.f, 0.f, 0.f),
+	FVector(300.f, 0.f, 0.f),
+	FVector(212.f, 0.f, 212.f),
+	FVector(0.f, 0.f, 300.f),
 	FVector(-212.f, 0.f, 212.f),
 	FVector(-300.f, 0.f, 0.f),
 	FVector(-212.f, 0.f, -212.f),
-	FVector(0.f,    0.f, -300.f),
-	FVector(212.f,  0.f, -212.f),
-	FVector(300.f,  0.f, 0.f),
-	FVector(300.f,  0.f, 0.f)
+	FVector(0.f, 0.f, -300.f),
+	FVector(212.f, 0.f, -212.f),
+	FVector(300.f, 0.f, 0.f),
+	FVector(300.f, 0.f, 0.f)
 };
 
 TArray<FVector> TrackPoints = {
 	// Long straight
-	FVector(0.f,    0.f,    0.f),
-	FVector(2000.f, 0.f,    0.f),
+	FVector(0.f, 0.f, 0.f),
+	FVector(2000.f, 0.f, 0.f),
 
 	// Tight curve (90°, small radius ~250)
-	FVector(2180.f, 75.f,   0.f),
-	FVector(2250.f, 250.f,  0.f),
+	FVector(2180.f, 75.f, 0.f),
+	FVector(2250.f, 250.f, 0.f),
 
 	// Short straight
-	FVector(2250.f, 650.f,  0.f),
+	FVector(2250.f, 650.f, 0.f),
 
 	// Wide S-bend (large radius, bulging in X while advancing in Y)
 	FVector(2750.f, 1250.f, 0.f),
@@ -81,16 +83,16 @@ TArray<FVector> TrackPoints = {
 
 	// Hairpin (tight ~180° reversal, radius ~250)
 	FVector(2320.f, 3230.f, 0.f),
-	FVector(2500.f, 3300.f, 0.f),   // apex
+	FVector(2500.f, 3300.f, 0.f), // apex
 	FVector(2680.f, 3230.f, 0.f),
-	FVector(2750.f, 3050.f, 0.f),   // exit, heading now reversed
+	FVector(2750.f, 3050.f, 0.f), // exit, heading now reversed
 
 	// Little slope up (climbing while heading back toward the start)
 	FVector(2200.f, 2300.f, 500.f),
 
 	// Final straight, passing directly over the first long straight
-	FVector(950.f,  0.f,    700.f),  // X=950 sits inside the 0–2000 range of the first straight, Z=700 elevates it above
-	FVector(100.f, -500.f,  700.f)
+	FVector(950.f, 0.f, 700.f), // X=950 sits inside the 0–2000 range of the first straight, Z=700 elevates it above
+	FVector(100.f, -500.f, 700.f)
 };
 
 TArray<FVector> TrackTangents = {
@@ -100,10 +102,10 @@ TArray<FVector> TrackTangents = {
 
 	// Tight curve
 	FVector(500.f, 500.f, 0.f),
-	FVector(0.f,   600.f, 0.f),
+	FVector(0.f, 600.f, 0.f),
 
 	// Short straight
-	FVector(0.f,   600.f, 0.f),
+	FVector(0.f, 600.f, 0.f),
 
 	// Wide S-bend (constant forward-axis tangent — same trick as the flat S-bend, lets the bulges read smoothly)
 	FVector(0.f, 900.f, 0.f),
@@ -112,10 +114,10 @@ TArray<FVector> TrackTangents = {
 	FVector(0.f, 300.f, 0.f),
 
 	// Hairpin
-	FVector(250.f,  250.f,  0.f),
-	FVector(350.f,  0.f,    0.f),
-	FVector(250.f, -250.f,  0.f),
-	FVector(0.f,   -300.f,  0.f),
+	FVector(250.f, 250.f, 0.f),
+	FVector(350.f, 0.f, 0.f),
+	FVector(250.f, -250.f, 0.f),
+	FVector(0.f, -300.f, 0.f),
 
 	// Slope up + final straight (one continuous direction — this is what keeps it a genuine "straight", no curvature)
 	FVector(-700.f, -1200.f, 250.f),
@@ -125,7 +127,8 @@ TArray<FVector> TrackTangents = {
 
 #pragma endregion
 
-void SetSplinePointsWithTangents(USplineComponent* SplineComponent, const TArray<FVector>& Points, const TArray<FVector>& Tangents)
+void SetSplinePointsWithTangents(USplineComponent* SplineComponent, const TArray<FVector>& Points,
+                                 const TArray<FVector>& Tangents)
 {
 	if (!SplineComponent || Points.Num() != Tangents.Num() || Points.Num() == 0)
 	{
@@ -158,7 +161,7 @@ FSplineToolkitRulesetPreviewScene::FSplineToolkitRulesetPreviewScene(Constructio
 	  , EditorPtr(EditorToolkit)
 {
 	// Disable killing actors outside of the world
-	AWorldSettings* WorldSettings           = GetWorld()->GetWorldSettings(true);
+	AWorldSettings* WorldSettings = GetWorld()->GetWorldSettings(true);
 	WorldSettings->bEnableWorldBoundsChecks = false;
 
 	// Auto update preview
@@ -169,13 +172,15 @@ FSplineToolkitRulesetPreviewScene::FSplineToolkitRulesetPreviewScene(Constructio
 
 	//Hide default floor
 	SetFloorVisibility(false, false);
-	
+
 	UpdateSplinePreview(SplinePreview::Track);
 }
+
 
 FSplineToolkitRulesetPreviewScene::~FSplineToolkitRulesetPreviewScene()
 {
 }
+
 
 void FSplineToolkitRulesetPreviewScene::Tick(float InDeltaTime)
 {
@@ -183,16 +188,17 @@ void FSplineToolkitRulesetPreviewScene::Tick(float InDeltaTime)
 	GetWorld()->Tick(LEVELTICK_All, InDeltaTime);
 }
 
+
 void FSplineToolkitRulesetPreviewScene::UpdateSplinePreview(SplinePreview preview)
 {
 	// Delete old actors
-	for (const auto& actor : PreviewActors)
+	for (const auto& Actor : PreviewActors)
 	{
-		if (!actor->IsValidLowLevel()) continue;
-		actor->Destroy();
+		if (!Actor.IsResolved() || !Actor->IsValidLowLevel()) continue;
+		Actor->Destroy();
 	}
 	PreviewActors.Empty();
-	
+
 	// Create the first actor
 	AActor* Spline0 = GetWorld()->SpawnActor<AActor>();
 	PreviewActors.Add(Spline0);
@@ -222,21 +228,31 @@ void FSplineToolkitRulesetPreviewScene::UpdateSplinePreview(SplinePreview previe
 	instantiator->RegisterComponent();
 	instantiator->Ruleset = GetEditor()->GetRuleset();
 
+	auto* extruder = reinterpret_cast<USplineToolkitMeshExtruder*>(Spline0->AddComponentByClass(
+		USplineToolkitMeshExtruder::StaticClass(), false, FTransform::Identity, false));
+	extruder->RegisterComponent();
+	extruder->Ruleset = GetEditor()->GetRuleset();
+
 	// TODO: Add the other components
-	
+
 	UpdatePreview();
 }
+
 
 void FSplineToolkitRulesetPreviewScene::UpdatePreview()
 {
 	if (!AutoUpdate) return;
-	for (auto* actor : PreviewActors)
+	for (auto Actor : PreviewActors)
 	{
-		if (!actor->IsValidLowLevel()) continue;
-		actor->GetComponentByClass<USplineToolkitInstantiator>()->Regenerate();
+		if (!Actor.IsResolved() || !Actor->IsValidLowLevel()) continue;
+		if (auto* Instantiator = Actor->GetComponentByClass<USplineToolkitInstantiator>())
+			Instantiator->Regenerate();
+		if (auto* Extruder = Actor->GetComponentByClass<USplineToolkitMeshExtruder>())
+			Extruder->Regenerate();
 		// TODO: Add the other components
 	}
 }
+
 
 void FSplineToolkitRulesetPreviewScene::SetPreviewSpline(SplinePreview preview)
 {
