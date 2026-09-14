@@ -31,7 +31,14 @@ void USplineToolkitInstantiator::EndPlay(const EEndPlayReason::Type EndPlayReaso
 FSplineToolkitRmfSample USplineToolkitInstantiator::GetRMFSampleAtDistance(
 	float Distance, FSplineToolkitRmfSample& PrevSample) const
 {
-	if (Distance <= 0.0f) return PrevSample;
+	if (Distance <= 0.0f)
+	{
+		auto NewSample = PrevSample;
+		const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
+		NewSample.Reference = NewSample.Reference.RotateAngleAxis(Roll, NewSample.Tangent);
+		NewSample.Bitangent = NewSample.Tangent.Cross(NewSample.Reference);
+		return NewSample;
+	}
 	
 	const FVector Position = this->SplineComponent->GetLocationAtDistanceAlongSpline(
 		Distance, ESplineCoordinateSpace::World);
@@ -117,11 +124,6 @@ void USplineToolkitInstantiator::RegenerateInternal()
 		.Tangent = this->SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
 		.Reference = this->SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
 	};
-	// Set the roll on the first sample
-	LastSample.Bitangent = LastSample.Tangent.Cross(LastSample.Reference);
-	const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);
-	LastSample.Reference = LastSample.Reference.RotateAngleAxis(Roll, LastSample.Tangent);
-	LastSample.Bitangent = LastSample.Tangent.Cross(LastSample.Reference);
 
 	int32 ObjIdx = 0;
 	
