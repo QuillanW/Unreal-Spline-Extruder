@@ -64,6 +64,8 @@ struct FSplineToolkitExtruderMeshData
 	TArray<FSplineToolkitRmfSample> RmfSamples;
 	UPROPERTY()
 	TObjectPtr<AActor> MeshActor;
+	UPROPERTY()
+	TObjectPtr<UProceduralMeshComponent> ProceduralMeshComponent;
 };
 
 /**

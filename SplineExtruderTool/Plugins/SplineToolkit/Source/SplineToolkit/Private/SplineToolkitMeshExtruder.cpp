@@ -39,12 +39,6 @@ void USplineToolkitMeshExtruder::OnRegister()
 		});
 	}
 
-	for (const auto& Data : this->OutMeshes)
-	{
-		if (Data.MeshActor.IsResolved() && Data.MeshActor->IsValidLowLevelFast())
-			Data.MeshActor->AttachToActor(GetOwner(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-	}
-
 	if (this->Ruleset)
 	{
 		this->Ruleset->OnChanged.AddLambda([this]()
@@ -53,7 +47,19 @@ void USplineToolkitMeshExtruder::OnRegister()
 		});
 	}
 
-	Regenerate();
+	GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
+	{
+		for (const auto& Data : this->OutMeshes)
+		{
+			if (IsValid(Data.MeshActor))
+			{
+				Data.MeshActor->AttachToActor(GetOwner(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+				UE_LOG(LogTemp, Warning, TEXT("Owner root: %s, MeshActor root: %s"),
+				       *GetNameSafe(GetOwner()->GetRootComponent()),
+				       *GetNameSafe(Data.MeshActor->GetRootComponent()));
+			}
+		}
+	});
 }
 
 
@@ -68,7 +74,10 @@ void USplineToolkitMeshExtruder::TickComponent(float DeltaTime, enum ELevelTick 
 		{
 			for (const auto& Sample : Data.RmfSamples)
 			{
-				FMatrix CoordinateMatrix{Sample.Bitangent.GetSafeNormal(), Sample.Tangent.GetSafeNormal(), Sample.Reference.GetSafeNormal(), FVector::ZeroVector};
+				FMatrix CoordinateMatrix{
+					Sample.Bitangent.GetSafeNormal(), Sample.Tangent.GetSafeNormal(), Sample.Reference.GetSafeNormal(),
+					FVector::ZeroVector
+				};
 				DrawDebugCoordinateSystem(GetWorld(), Sample.Position + Data.MeshActor->GetActorLocation(),
 				                          CoordinateMatrix.Rotator(), 100.f, false, -1, 0,
 				                          3.f);
@@ -135,10 +144,10 @@ void USplineToolkitMeshExtruder::Regenerate()
 
 void USplineToolkitMeshExtruder::Clear()
 {
-	for (const auto& [_1, _2, _3, Actor] : this->OutMeshes)
+	for (const auto& Data : this->OutMeshes)
 	{
-		if (Actor.IsResolved() && Actor->IsValidLowLevelFast())
-			Actor->Destroy();
+		if (Data.MeshActor.IsResolved() && Data.MeshActor->IsValidLowLevelFast())
+			Data.MeshActor->Destroy();
 	}
 	this->OutMeshes.Empty();
 }
@@ -146,14 +155,19 @@ void USplineToolkitMeshExtruder::Clear()
 
 void USplineToolkitMeshExtruder::ClearConservative()
 {
-	auto InitMeshActor = [this, Counter = 0](TObjectPtr<AActor>& Out) mutable
+	auto InitMeshActor = [this, Counter = 0](TObjectPtr<AActor>& Out,
+	                                         TObjectPtr<UProceduralMeshComponent>& OutMesh) mutable
 	{
 		Out = GetWorld()->SpawnActor<AActor>();
 #if WITH_EDITOR
 		Out->SetActorLabel(TEXT("SplineExtruderInstance") + FString::FromInt(Counter++));
 #endif
-		Out->AddComponentByClass(
-			UProceduralMeshComponent::StaticClass(), false, FTransform::Identity, false);
+		OutMesh = NewObject<UProceduralMeshComponent>(Out, NAME_None, RF_Transactional);
+		OutMesh->CreationMethod = EComponentCreationMethod::Instance;
+		OutMesh->SetupAttachment(Out->GetRootComponent());
+		OutMesh->RegisterComponent();
+		Out->AddInstanceComponent(OutMesh);
+		Out->SetRootComponent(OutMesh);
 		Out->AttachToActor(GetOwner(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 	};
 
@@ -165,8 +179,8 @@ void USplineToolkitMeshExtruder::ClearConservative()
 		};
 
 		// Recreate an actor when the one it has currently is not valid
-		if (!Data.MeshActor.IsResolved() || !Data.MeshActor->IsValidLowLevelFast())
-			InitMeshActor(Data.MeshActor);
+		if (!IsValid(Data.MeshActor))
+			InitMeshActor(Data.MeshActor, Data.ProceduralMeshComponent);
 
 		if (!Data.MeshActor->FindComponentByClass<UProceduralMeshComponent>())
 			Data.MeshActor->AddComponentByClass(UProceduralMeshComponent::StaticClass(), false, FTransform::Identity,
@@ -180,7 +194,7 @@ void USplineToolkitMeshExtruder::ClearConservative()
 	// Then, shrink or grow to fit
 	if (this->OutMeshes.Num() >= this->Ruleset->ExtrusionRules.Num())
 	{
-		for (int32 I = this->Ruleset->ExtrusionRules.Num(); I < this->OutMeshes.Num(); ++I)
+		for (int32 I = this->OutMeshes.Num() - 1; I >= this->Ruleset->ExtrusionRules.Num(); --I)
 		{
 			this->OutMeshes[I].MeshActor->Destroy();
 			this->OutMeshes.RemoveAt(I);
@@ -191,7 +205,7 @@ void USplineToolkitMeshExtruder::ClearConservative()
 		for (int32 I = this->OutMeshes.Num(); I < this->Ruleset->ExtrusionRules.Num(); ++I)
 		{
 			auto& Data = this->OutMeshes.Emplace_GetRef();
-			InitMeshActor(Data.MeshActor);
+			InitMeshActor(Data.MeshActor, Data.ProceduralMeshComponent);
 		}
 	}
 }
@@ -294,7 +308,8 @@ void USplineToolkitMeshExtruder::RecalculateRmfSamples(int32 NumRmfSamples, FSpl
 	// Apply roll
 	for (auto& Sample : Data.RmfSamples)
 	{
-		const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(Sample.Distance, ESplineCoordinateSpace::Local);
+		const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(
+			Sample.Distance, ESplineCoordinateSpace::Local);
 
 		Sample.Reference = Sample.Reference.RotateAngleAxis(Roll, Sample.Tangent);
 		Sample.Bitangent = Sample.Tangent.Cross(Sample.Reference);
