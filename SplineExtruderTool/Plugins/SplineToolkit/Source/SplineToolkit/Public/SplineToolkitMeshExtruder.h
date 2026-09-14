@@ -90,6 +90,10 @@ public:
 	USplineComponent* SplineComponent = nullptr;
 
 private:
+	
+	void RegenerateInternal();
+	
+	bool bRegenerate = false;
 
 	// The output meshes
 	UPROPERTY()
