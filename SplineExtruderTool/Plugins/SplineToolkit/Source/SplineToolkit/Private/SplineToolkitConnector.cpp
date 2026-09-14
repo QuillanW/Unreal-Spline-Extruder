@@ -51,6 +51,23 @@ void USplineToolkitConnector::AutoAttach(USplineComponent* Target)
 
 void USplineToolkitConnector::Validate()
 {
+	// Validate the spline component on this object
+	if (!IsValid(SplineComponent))
+	{
+		if (AActor* Owner = GetOwner())
+		{
+			if (!Owner->FindComponentByClass<USplineComponent>())
+			{
+				UE_LOG(LogTemp, Error, TEXT("Instantiator requires USplineComponent"));
+				return;
+			}
+			SplineComponent = Owner->GetComponentByClass<USplineComponent>();
+			SplineComponent->GetOnSplineChanged().AddLambda([this] { if (bAutoUpdate) ReAttach(); });
+		}
+	}
+	
+	if (Connections.IsEmpty()) return;
+	
 	// Check that the spline connection is still valid
 	for (int i = Connections.Num() - 1; i < 0; --i)
 	{
@@ -88,15 +105,17 @@ void USplineToolkitConnector::ReAttach()
 	
 	FVector StartLoc = SplineComponent->GetLocationAtTime(0, ESplineCoordinateSpace::World);
 	FVector StartTan = SplineComponent->GetTangentAtTime(0, ESplineCoordinateSpace::World);
-	float StartRoll = SplineComponent->GetRollAtTime(0, ESplineCoordinateSpace::World);
+	// float StartRoll = SplineComponent->GetRollAtTime(0, ESplineCoordinateSpace::World);
 	
 	FVector EndLoc = SplineComponent->GetLocationAtTime(1.0f, ESplineCoordinateSpace::World);
+	FVector EndTan = SplineComponent->GetTangentAtTime(1.0, ESplineCoordinateSpace::World);
+	// float EndRoll = SplineComponent->GetRollAtTime(1.0f, ESplineCoordinateSpace::World);
 	
 	for (auto& Con : Connections)
 	{
 		const auto PointIdx = Con.bToEnd ? Con.ToSpline->GetNumberOfSplinePoints() : 0;
-		Con.ToSpline->SetWorldLocationAtSplinePoint(PointIdx, );
-		Con.ToSpline->SetTangentAtSplinePoint(PointIdx, );
+		Con.ToSpline->SetLocationAtSplinePoint(PointIdx, Con.bFromEnd ? EndLoc : StartLoc, ESplineCoordinateSpace::World);
+		Con.ToSpline->SetTangentAtSplinePoint(PointIdx, Con.bFromEnd ? EndTan : StartTan, ESplineCoordinateSpace::World);
 	}
 }
 

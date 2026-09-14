@@ -8,7 +8,7 @@
 #include "SplineToolkitConnector.generated.h"
 
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FSplineConnection
 {
 	GENERATED_BODY()
@@ -45,7 +45,7 @@ public:
 
 	// Automatically find the 2 closest points between the attached spline and the given target spline
 	void AutoAttach(USplineComponent* Target);
-	
+
 	// Validate the connections on this component
 	// Removes any invalid connections and make sure the options are followed correctly
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit")
