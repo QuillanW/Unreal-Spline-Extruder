@@ -28,6 +28,71 @@ void USplineToolkitInstantiator::EndPlay(const EEndPlayReason::Type EndPlayReaso
 	Super::EndPlay(EndPlayReason);
 }
 
+void USplineToolkitInstantiator::RecalculateRmfSamples(int32 NumRmfSamples, FSplineToolkitExtruderMeshData& Data) const
+{
+	// Perform simple RMF for now
+	Data.RmfSamples.Empty();
+	Data.RmfSamples.Reserve(NumRmfSamples);
+
+	// 0th sample is the first tangent
+	FSplineToolkitRmfSample PrevSample = {
+		.Position = this->SplineComponent->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::Local),
+		.Distance = 0.0f,
+		.Tangent = this->SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::Local).GetSafeNormal(),
+		.Reference = this->SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::Local).GetSafeNormal(),
+	};
+	PrevSample.Bitangent = PrevSample.Tangent.Cross(PrevSample.Reference);
+
+	Data.RmfSamples.Add(PrevSample);
+
+	for (int32 SampleIter = 1; SampleIter < NumRmfSamples; ++SampleIter)
+	{
+		const float Time = SampleIter / static_cast<float>(NumRmfSamples - 1);
+
+		const FVector Position = this->SplineComponent->GetLocationAtTime(Time, ESplineCoordinateSpace::Local);
+		const FVector Tangent = this->SplineComponent->GetTangentAtTime(Time, ESplineCoordinateSpace::Local).
+		                              GetSafeNormal();
+		const float Distance = this->SplineComponent->GetDistanceAlongSplineAtLocation(
+			Position, ESplineCoordinateSpace::Local);
+
+		// Perform the first reflection R_1
+		// Algorithm from https://dl.acm.org/doi/epdf/10.1145/1330511.1330513
+		// Page 7, Table I
+		const FVector Reflection1 = Position - PrevSample.Position;
+		const float Reflection1SqrLength = Reflection1.SquaredLength();
+		const FVector PrevReferenceLeftHanded = PrevSample.Reference - (2.0f / Reflection1SqrLength) * Reflection1.
+			Dot(PrevSample.Reference) * Reflection1;
+		const FVector PrevTangentLeftHanded = PrevSample.Tangent - (2.0f / Reflection1SqrLength) * Reflection1.
+			Dot(PrevSample.Tangent) * Reflection1;
+
+		const FVector Reflection2 = Tangent - PrevTangentLeftHanded;
+		const float Reflection2SqrLength = Reflection2.SquaredLength();
+		const FVector NewReference = PrevReferenceLeftHanded - (2.0f / Reflection2SqrLength) * Reflection2.Dot(
+			PrevReferenceLeftHanded) * Reflection2;
+
+		const FVector NewBitangent = Tangent.Cross(NewReference);
+
+		auto NewSample = FSplineToolkitRmfSample{
+			.Position = Position,
+			.Distance = Distance,
+			.Tangent = Tangent,
+			.Bitangent = NewBitangent,
+			.Reference = NewReference
+		};
+		Data.RmfSamples.Add(NewSample);
+		PrevSample = NewSample;
+	}
+
+	// Apply roll
+	for (auto& Sample : Data.RmfSamples)
+	{
+		const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(Sample.Distance, ESplineCoordinateSpace::Local);
+
+		Sample.Reference = Sample.Reference.RotateAngleAxis(Roll, Sample.Tangent);
+		Sample.Bitangent = Sample.Tangent.Cross(Sample.Reference);
+	}
+}
+
 void USplineToolkitInstantiator::OnRegister()
 {
 	Super::OnRegister();
