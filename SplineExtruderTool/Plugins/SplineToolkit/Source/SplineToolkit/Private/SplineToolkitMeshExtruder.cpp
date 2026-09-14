@@ -107,6 +107,9 @@ void USplineToolkitMeshExtruder::TickComponent(float DeltaTime, enum ELevelTick 
 				DrawDebugString(GetWorld(), Transform.TransformPosition(Pos), FString::FromInt(Index++));
 		}
 	}
+	
+	if (bRegenerate)
+		RegenerateInternal();
 }
 
 
@@ -117,9 +120,16 @@ void USplineToolkitMeshExtruder::OnComponentDestroyed(bool bDestroyingHierarchy)
 	Clear();
 }
 
-
 void USplineToolkitMeshExtruder::Regenerate()
 {
+	bRegenerate = true;
+}
+
+
+void USplineToolkitMeshExtruder::RegenerateInternal()
+{
+	bRegenerate = false;
+	
 	ClearConservative();
 
 	if (!this->Ruleset->IsValidLowLevelFast())

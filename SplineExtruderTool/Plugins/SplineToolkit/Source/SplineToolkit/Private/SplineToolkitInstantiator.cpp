@@ -189,6 +189,7 @@ void USplineToolkitInstantiator::RegenerateInternal()
 	
 	for (int32 i = SpawnedInstancedMeshes.Num() - 1; i >= ObjIdx; --i)
 	{
+		if (!IsValid(SpawnedInstancedMeshes[i])) return;
 		SpawnedInstancedMeshes[i]->Destroy();
 		SpawnedInstancedMeshes.RemoveAt(i);
 	}
@@ -221,7 +222,8 @@ void USplineToolkitInstantiator::Clear()
 {
 	// Clean up old objects
 	for (const auto& actor : SpawnedInstancedMeshes)
-		actor->Destroy();
+		if (IsValid(actor))
+			actor->Destroy();
 
 	SpawnedInstancedMeshes.Empty();
 }
