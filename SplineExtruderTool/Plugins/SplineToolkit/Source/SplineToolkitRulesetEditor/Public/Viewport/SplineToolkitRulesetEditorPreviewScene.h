@@ -38,7 +38,7 @@ public:
 		return EditorPtr.Pin().ToSharedRef();
 	}
 
-	TArray<AActor*> PreviewActors;
+	TArray<TObjectPtr<AActor>> PreviewActors;
 	
 	bool AutoUpdate = true;
 	

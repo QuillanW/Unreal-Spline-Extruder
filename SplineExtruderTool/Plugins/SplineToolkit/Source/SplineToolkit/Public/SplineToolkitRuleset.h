@@ -101,6 +101,15 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UStaticMesh* Mesh = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector Offset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector Scale = FVector::OneVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 NumRmfSamples = 128;
 };
 
 /// Stretching rule for its matching component
@@ -152,7 +161,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FSplineToolkitPlacementRule> PlacementRules = {};
-	
+
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty( FPropertyChangedEvent & PropertyChangedEvent ) override;
 
