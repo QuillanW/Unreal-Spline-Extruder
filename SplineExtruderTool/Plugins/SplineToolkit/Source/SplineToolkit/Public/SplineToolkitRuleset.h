@@ -11,6 +11,24 @@
 //         GENERIC TYPES
 // ===============================
 
+// RMF Sample type
+USTRUCT()
+struct FSplineToolkitRmfSample
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FVector Position;
+	UPROPERTY()
+	float Distance;
+	UPROPERTY()
+	FVector Tangent;   // Front vector
+	UPROPERTY()
+	FVector Bitangent; // Right vector
+	UPROPERTY()
+	FVector Reference; // Up vector
+};
+
 /// An anchor used by rules
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitAnchor

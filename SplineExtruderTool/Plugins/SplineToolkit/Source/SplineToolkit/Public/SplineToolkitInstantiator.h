@@ -8,23 +8,6 @@
 #include "SplineToolkitRuleset.h"
 #include "SplineToolkitInstantiator.generated.h"
 
-USTRUCT()
-struct FSplineToolkitRmfSample
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	FVector Position;
-	UPROPERTY()
-	float Distance;
-	UPROPERTY()
-	FVector Tangent;   // Front vector
-	UPROPERTY()
-	FVector Bitangent; // Right vector
-	UPROPERTY()
-	FVector Reference; // Up vector
-};
-
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent), DisplayName = "[Spline Toolkit] Mesh Instantiator")
 class SPLINETOOLKIT_API USplineToolkitInstantiator : public UActorComponent
 {
