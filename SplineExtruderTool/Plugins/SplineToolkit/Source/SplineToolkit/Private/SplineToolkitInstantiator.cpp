@@ -11,7 +11,7 @@ USplineToolkitInstantiator::USplineToolkitInstantiator()
 	// every frame.  You can turn these features off to improve performance if you
 	// don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-	
+
 	// ...
 }
 
@@ -19,7 +19,7 @@ USplineToolkitInstantiator::USplineToolkitInstantiator()
 void USplineToolkitInstantiator::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	// ...
 }
 
@@ -28,75 +28,54 @@ void USplineToolkitInstantiator::EndPlay(const EEndPlayReason::Type EndPlayReaso
 	Super::EndPlay(EndPlayReason);
 }
 
-void USplineToolkitInstantiator::RecalculateRmfSamples(int32 NumRmfSamples, FSplineToolkitExtruderMeshData& Data) const
+FSplineToolkitRmfSample USplineToolkitInstantiator::GetRMFSampleAtDistance(
+	float Distance, FSplineToolkitRmfSample& PrevSample) const
 {
-	// Perform simple RMF for now
-	Data.RmfSamples.Empty();
-	Data.RmfSamples.Reserve(NumRmfSamples);
+	if (Distance <= 0.0f) return PrevSample;
+	
+	const FVector Position = this->SplineComponent->GetLocationAtDistanceAlongSpline(
+		Distance, ESplineCoordinateSpace::World);
+	const FVector Tangent = this->SplineComponent->GetTangentAtDistanceAlongSpline(
+		Distance, ESplineCoordinateSpace::World).GetSafeNormal();
 
-	// 0th sample is the first tangent
-	FSplineToolkitRmfSample PrevSample = {
-		.Position = this->SplineComponent->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::Local),
-		.Distance = 0.0f,
-		.Tangent = this->SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::Local).GetSafeNormal(),
-		.Reference = this->SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::Local).GetSafeNormal(),
+	// Perform the first reflection R_1
+	// Algorithm from https://dl.acm.org/doi/epdf/10.1145/1330511.1330513
+	// Page 7, Table I
+	const FVector Reflection1 = Position - PrevSample.Position;
+	const float Reflection1SqrLength = Reflection1.SquaredLength();
+	const FVector PrevReferenceLeftHanded = PrevSample.Reference - (2.0f / Reflection1SqrLength) * Reflection1.
+		Dot(PrevSample.Reference) * Reflection1;
+	const FVector PrevTangentLeftHanded = PrevSample.Tangent - (2.0f / Reflection1SqrLength) * Reflection1.
+		Dot(PrevSample.Tangent) * Reflection1;
+
+	const FVector Reflection2 = Tangent - PrevTangentLeftHanded;
+	const float Reflection2SqrLength = Reflection2.SquaredLength();
+	const FVector NewReference = PrevReferenceLeftHanded - (2.0f / Reflection2SqrLength) * Reflection2.Dot(
+		PrevReferenceLeftHanded) * Reflection2;
+
+	const FVector NewBitangent = Tangent.Cross(NewReference);
+
+	auto NewSample = FSplineToolkitRmfSample{
+		.Position = Position,
+		.Distance = Distance,
+		.Tangent = Tangent,
+		.Bitangent = NewBitangent,
+		.Reference = NewReference
 	};
-	PrevSample.Bitangent = PrevSample.Tangent.Cross(PrevSample.Reference);
 
-	Data.RmfSamples.Add(PrevSample);
+	PrevSample = NewSample;
 
-	for (int32 SampleIter = 1; SampleIter < NumRmfSamples; ++SampleIter)
-	{
-		const float Time = SampleIter / static_cast<float>(NumRmfSamples - 1);
+	const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
 
-		const FVector Position = this->SplineComponent->GetLocationAtTime(Time, ESplineCoordinateSpace::Local);
-		const FVector Tangent = this->SplineComponent->GetTangentAtTime(Time, ESplineCoordinateSpace::Local).
-		                              GetSafeNormal();
-		const float Distance = this->SplineComponent->GetDistanceAlongSplineAtLocation(
-			Position, ESplineCoordinateSpace::Local);
-
-		// Perform the first reflection R_1
-		// Algorithm from https://dl.acm.org/doi/epdf/10.1145/1330511.1330513
-		// Page 7, Table I
-		const FVector Reflection1 = Position - PrevSample.Position;
-		const float Reflection1SqrLength = Reflection1.SquaredLength();
-		const FVector PrevReferenceLeftHanded = PrevSample.Reference - (2.0f / Reflection1SqrLength) * Reflection1.
-			Dot(PrevSample.Reference) * Reflection1;
-		const FVector PrevTangentLeftHanded = PrevSample.Tangent - (2.0f / Reflection1SqrLength) * Reflection1.
-			Dot(PrevSample.Tangent) * Reflection1;
-
-		const FVector Reflection2 = Tangent - PrevTangentLeftHanded;
-		const float Reflection2SqrLength = Reflection2.SquaredLength();
-		const FVector NewReference = PrevReferenceLeftHanded - (2.0f / Reflection2SqrLength) * Reflection2.Dot(
-			PrevReferenceLeftHanded) * Reflection2;
-
-		const FVector NewBitangent = Tangent.Cross(NewReference);
-
-		auto NewSample = FSplineToolkitRmfSample{
-			.Position = Position,
-			.Distance = Distance,
-			.Tangent = Tangent,
-			.Bitangent = NewBitangent,
-			.Reference = NewReference
-		};
-		Data.RmfSamples.Add(NewSample);
-		PrevSample = NewSample;
-	}
-
-	// Apply roll
-	for (auto& Sample : Data.RmfSamples)
-	{
-		const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(Sample.Distance, ESplineCoordinateSpace::Local);
-
-		Sample.Reference = Sample.Reference.RotateAngleAxis(Roll, Sample.Tangent);
-		Sample.Bitangent = Sample.Tangent.Cross(Sample.Reference);
-	}
+	NewSample.Reference = NewSample.Reference.RotateAngleAxis(Roll, NewSample.Tangent);
+	NewSample.Bitangent = NewSample.Tangent.Cross(NewSample.Reference);
+	return NewSample;
 }
 
 void USplineToolkitInstantiator::OnRegister()
 {
 	Super::OnRegister();
-	
+
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bTickEvenWhenPaused = true;
 	PrimaryComponentTick.bStartWithTickEnabled = true;
@@ -110,9 +89,9 @@ void USplineToolkitInstantiator::OnRegister()
 			return;
 		}
 		SplineComponent = Owner->GetComponentByClass<USplineComponent>();
-		SplineComponent->GetOnSplineChanged().AddLambda([this]{ if (AutoUpdate) Regenerate(); });
+		SplineComponent->GetOnSplineChanged().AddLambda([this] { if (AutoUpdate) Regenerate(); });
 	}
-	
+
 	if (Ruleset->IsValidLowLevel())
 		Ruleset->OnChanged.AddLambda([this]
 		{
@@ -124,19 +103,28 @@ void USplineToolkitInstantiator::OnRegister()
 void USplineToolkitInstantiator::RegenerateInternal()
 {
 	bRegenerate = false;
-	
-	if (!this->Ruleset->IsValidLowLevelFast())
-	    return;
-	
-	// Clean up old objects
-	for (const auto& Actor : SpawnedInstancedMeshes)
-		Actor->Destroy();
 
-	SpawnedInstancedMeshes.Empty();
+	if (!this->Ruleset->IsValidLowLevelFast())
+		return;
 
 	// Get total length to step over
 	const auto TotalLen = SplineComponent->GetSplineLength();
 
+	// Keep the last RMF Sample
+	FSplineToolkitRmfSample LastSample = {
+		.Position = this->SplineComponent->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World),
+		.Distance = 0.0f,
+		.Tangent = this->SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
+		.Reference = this->SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
+	};
+	// Set the roll on the first sample
+	LastSample.Bitangent = LastSample.Tangent.Cross(LastSample.Reference);
+	const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);
+	LastSample.Reference = LastSample.Reference.RotateAngleAxis(Roll, LastSample.Tangent);
+	LastSample.Bitangent = LastSample.Tangent.Cross(LastSample.Reference);
+
+	int32 ObjIdx = 0;
+	
 	// Go over each rule
 	for (const auto& Rule : Ruleset->InstantiationRules)
 	{
@@ -155,50 +143,67 @@ void USplineToolkitInstantiator::RegenerateInternal()
 			if (offset >= ModdedRule.StepPrecision)
 				continue;
 
-			const auto Pos = SplineComponent->GetWorldLocationAtDistanceAlongSpline(CurrentDist);
-			const auto Rot = SplineComponent->GetWorldRotationAtDistanceAlongSpline(CurrentDist);
+			FSplineToolkitRmfSample Sample = GetRMFSampleAtDistance(CurrentDist, LastSample);
+			
+			FVector Pos = Sample.Position;
+			FVector Rht = Sample.Bitangent;
+			FVector Fwd = Sample.Tangent;
+			FVector Up = Sample.Reference;
+			FRotator Rot = FRotationMatrix::MakeFromXZ(Fwd, Up).Rotator();
 
-			const auto Fwd = SplineComponent->GetDirectionAtDistanceAlongSpline(
-				CurrentDist, ESplineCoordinateSpace::World);
-			const auto Rht = SplineComponent->GetRightVectorAtDistanceAlongSpline(
-				CurrentDist, ESplineCoordinateSpace::World);
-			const auto Up = SplineComponent->GetUpVectorAtDistanceAlongSpline(
-				CurrentDist, ESplineCoordinateSpace::World);
-
-			FActorSpawnParameters SpawnParams;
-			AActor* NewActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), Pos, Rot, SpawnParams);
-
+			TObjectPtr<AActor> NewActor = {};
+			if (ObjIdx >= SpawnedInstancedMeshes.Num())
+			{
+				NewActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), Pos, Rot);
+#if WITH_EDITOR
+				NewActor->SetActorLabel("InstancedObject" + FString::FromInt(ObjIdx));
+#endif
+				if (NewActor)
+				{
+					SpawnedInstancedMeshes.Add(NewActor);
+					UStaticMeshComponent* NewMeshComp = NewObject<UStaticMeshComponent>(NewActor);
+					NewMeshComp->RegisterComponent();
+					NewActor->SetRootComponent(NewMeshComp);
+					NewActor->AttachToActor(this->GetOwner(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+				}
+			}
+			else
+			{
+				NewActor = SpawnedInstancedMeshes[ObjIdx];
+			}
+			
 			if (NewActor)
 			{
-				SpawnedInstancedMeshes.Add(NewActor);
-
 				FVector Offset = Rht * ModdedRule.Offset.X;
 				Offset += Fwd * ModdedRule.Offset.Y;
 				Offset += Up * ModdedRule.Offset.Z;
-				
-				UStaticMeshComponent* NewMeshComp = NewObject<UStaticMeshComponent>(NewActor);
-				NewMeshComp->SetStaticMesh(ModdedRule.Mesh);
-				NewMeshComp->RegisterComponent();
-				NewActor->SetRootComponent(NewMeshComp);
+
+				NewActor->GetComponentByClass<UStaticMeshComponent>()->SetStaticMesh(ModdedRule.Mesh);
 				NewActor->SetActorLocationAndRotation(Pos + Offset, Rot);
 				NewActor->SetActorScale3D(ModdedRule.Scale);
-
-				NewActor->AttachToActor(this->GetOwner(), FAttachmentTransformRules::KeepWorldTransform);
 			}
+			
+			++ObjIdx;
 		}
+	}
+	
+	for (int32 i = SpawnedInstancedMeshes.Num() - 1; i >= ObjIdx; --i)
+	{
+		SpawnedInstancedMeshes[i]->Destroy();
+		SpawnedInstancedMeshes.RemoveAt(i);
 	}
 }
 
 void USplineToolkitInstantiator::OnComponentDestroyed(bool bDestroyingHierarchy)
 {
 	Super::OnComponentDestroyed(bDestroyingHierarchy);
-	
+
 	Clear();
 }
 
 // Called every frame
 void USplineToolkitInstantiator::TickComponent(
-	float                        DeltaTime, ELevelTick TickType,
+	float DeltaTime, ELevelTick TickType,
 	FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -226,7 +231,7 @@ void USplineToolkitInstantiator::PostEditChangeProperty(FPropertyChangedEvent& P
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 	if (AutoUpdate)
 		Regenerate();
-	
+
 	if (Ruleset->IsValidLowLevel())
 		Ruleset->OnChanged.AddLambda([this]
 		{
