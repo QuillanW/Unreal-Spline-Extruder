@@ -8,7 +8,7 @@
 #include "SplineToolkitRuleset.h"
 #include "SplineToolkitInstantiator.generated.h"
 
-UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent), DisplayName = "[Spline Toolkit] Mesh Instantiator")
 class SPLINETOOLKIT_API USplineToolkitInstantiator : public UActorComponent
 {
 	GENERATED_BODY()
@@ -26,6 +26,8 @@ public:
 	
 protected:
 	virtual void OnRegister() override;
+	
+	FSplineToolkitRmfSample GetRMFSampleAtDistance(float d, FSplineToolkitRmfSample& prevSample) const;
 	
 	void RegenerateInternal();
 	
@@ -46,7 +48,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	USplineToolkitRuleset* Ruleset = nullptr;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	USplineComponent* SplineComponent = nullptr;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")

@@ -11,6 +11,24 @@
 //         GENERIC TYPES
 // ===============================
 
+// RMF Sample type
+USTRUCT()
+struct FSplineToolkitRmfSample
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FVector Position;
+	UPROPERTY()
+	float Distance;
+	UPROPERTY()
+	FVector Tangent;   // Front vector
+	UPROPERTY()
+	FVector Bitangent; // Right vector
+	UPROPERTY()
+	FVector Reference; // Up vector
+};
+
 /// An anchor used by rules
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitAnchor
@@ -74,16 +92,19 @@ public:
 	UStaticMesh* Mesh = nullptr;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float StepPrecision = 1.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool Enabled = true;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float Spacing = 1.0f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FVector Offset;
+	FVector Offset = FVector::ZeroVector;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FVector Scale;
+	FVector Scale = FVector::OneVector;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FSplineToolkitRuleModifier> Modifiers;
