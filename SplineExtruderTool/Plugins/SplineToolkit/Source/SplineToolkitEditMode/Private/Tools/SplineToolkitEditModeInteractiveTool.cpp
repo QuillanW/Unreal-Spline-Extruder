@@ -6,11 +6,15 @@
 #include "BaseBehaviors/ClickDragBehavior.h"
 
 // for raycast into World
+#include "AssetSelection.h"
 #include "CollisionQueryParams.h"
+#include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Engine/HitResult.h"
 
 #include "SceneManagement.h"
+#include "Components/SplineComponent.h"
+#include "Snapping/EditorSnappingManager.h"
 
 // localization namespace
 #define LOCTEXT_NAMESPACE "USplineToolkitEditModeInteractiveTool"
@@ -90,9 +94,50 @@ FInputRayHit USplineToolkitEditModeInteractiveTool::CanBeginClickDragSequence(co
 
 void USplineToolkitEditModeInteractiveTool::OnClickPress(const FInputDeviceRay& PressPos)
 {
+	GEditor->SelectNone(false, true, false);
+	
+	float ClosestDistance = 10000.0f;
+	USplineComponent* ClosestComp = nullptr;
+	int32 ClosestPointIdx = 0;
+	
+	for (TActorIterator<AActor> ActorIt(TargetWorld); ActorIt; ++ActorIt)
+	{
+		AActor* Actor = *ActorIt;
+		if (!Actor) continue;
+		USplineComponent* SplineComp = Actor->GetComponentByClass<USplineComponent>();
+		if (!SplineComp) continue;
+		
+		for (int32 Idx = 0; Idx < SplineComp->GetNumberOfSplinePoints(); ++Idx)
+		{
+			auto SplinePoint = SplineComp->GetSplinePointAt(Idx, ESplineCoordinateSpace::World);
+			FVector ClickedPoint;
+			FindRayHit(PressPos.WorldRay, ClickedPoint);
+			float Distance = (ClickedPoint - SplinePoint.Position).Length();
+			if (Distance < ClosestDistance)
+			{
+				ClosestDistance = Distance;
+				ClosestComp = SplineComp;
+				ClosestPointIdx = Idx;
+				
+				Properties->StartPoint = ClickedPoint;
+				Properties->EndPoint = SplinePoint.Position;
+			}
+		}
+	}
+	
+	
+	// for (FSelectionIterator Iter(*SelectedInfo); Iter; ++Iter)
+	// {
+	// 	
+	// 	AActor* Actor = Cast<AActor>(*Iter);
+	// 	if (Actor)
+	// 	{
+	// 		if (Actor->GetComponentByClass<USplineComponent>())
+	// 			UE_LOG(LogTemp, Warning, TEXT("SPLINE SELECTED"));
+	// 	}
+	// }
+		
 	// determine whether we are moving first or second point for the drag sequence
-	bMoveSecondPoint = bSecondPointModifierDown;
-	UpdatePosition(PressPos.WorldRay);
 }
 
 
