@@ -24,6 +24,11 @@
 			"Name": "SplineToolkitRulesetEditor",
 			"Type": "Editor",
 			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "SplineToolkitEditMode",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
 		}
 	]
 }
