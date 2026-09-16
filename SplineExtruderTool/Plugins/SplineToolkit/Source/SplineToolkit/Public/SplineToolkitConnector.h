@@ -28,6 +28,20 @@ struct FSplineConnection
 	// Whether this connection is enabled within the group of connections
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bEnabled = true;
+	
+	// Whether this connection turns around at the point of connection
+	bool IsInvertedConnection() const
+	{
+		return bFromEnd == bToEnd;
+	}
+	
+	FSplineConnection GetOpposingConnection(USplineComponent* Self)
+	{
+		FSplineConnection Con;
+		Con.ToSpline = Self;
+		
+		return Con;
+	}
 };
 
 
@@ -45,6 +59,10 @@ public:
 
 	// Automatically find the 2 closest points between the attached spline and the given target spline
 	void AutoAttach(USplineComponent* Target);
+	
+	// Automatically find the closest possible spline to attach to
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit")
+	void FullAutoAttach();
 
 	// Validate the connections on this component
 	// Removes any invalid connections and make sure the options are followed correctly
