@@ -2,6 +2,7 @@
 
 #include "SplineToolkitInstantiator.h"
 
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SplineComponent.h"
 
 // Sets default values for this component's properties
@@ -111,6 +112,10 @@ void USplineToolkitInstantiator::RegenerateInternal()
 {
 	bRegenerate = false;
 
+	// Easier to just clear all and regenerate since the components are small and quick to load 
+	// And I'm kinda lazy while writing this at midnight...
+	Clear();
+
 	if (!this->Ruleset->IsValidLowLevelFast())
 		return;
 
@@ -124,8 +129,8 @@ void USplineToolkitInstantiator::RegenerateInternal()
 		.Tangent = this->SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
 		.Reference = this->SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
 	};
-
-	int32 ObjIdx = 0;
+	
+	int32 RuleIdx = 0;
 	
 	// Go over each rule
 	for (const auto& Rule : Ruleset->InstantiationRules)
@@ -153,47 +158,44 @@ void USplineToolkitInstantiator::RegenerateInternal()
 			FVector Up = Sample.Reference;
 			FRotator Rot = FRotationMatrix::MakeFromXZ(Fwd, Up).Rotator();
 
-			TObjectPtr<AActor> NewActor = {};
-			if (ObjIdx >= SpawnedInstancedMeshes.Num())
+			TObjectPtr<AActor> InstancerActor = {};
+			if (RuleIdx >= SpawnedInstancedMeshes.Num())
 			{
-				NewActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), Pos, Rot);
+				InstancerActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), Pos, Rot);
 #if WITH_EDITOR
-				NewActor->SetActorLabel("InstancedObject" + FString::FromInt(ObjIdx));
+				InstancerActor->SetActorLabel("SplineInstantiatorInstancer" + FString::FromInt(RuleIdx));
 #endif
-				if (NewActor)
+				if (InstancerActor)
 				{
-					SpawnedInstancedMeshes.Add(NewActor);
-					UStaticMeshComponent* NewMeshComp = NewObject<UStaticMeshComponent>(NewActor);
+					SpawnedInstancedMeshes.Add(InstancerActor);
+					UInstancedStaticMeshComponent* NewMeshComp = NewObject<UInstancedStaticMeshComponent>(InstancerActor);
 					NewMeshComp->RegisterComponent();
-					NewActor->SetRootComponent(NewMeshComp);
-					NewActor->AttachToActor(this->GetOwner(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+					InstancerActor->SetRootComponent(NewMeshComp);
+					InstancerActor->AttachToActor(this->GetOwner(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 				}
 			}
 			else
 			{
-				NewActor = SpawnedInstancedMeshes[ObjIdx];
+				InstancerActor = SpawnedInstancedMeshes[RuleIdx];
 			}
 			
-			if (NewActor)
+			if (InstancerActor)
 			{
 				FVector Offset = Rht * ModdedRule.Offset.X;
 				Offset += Fwd * ModdedRule.Offset.Y;
 				Offset += Up * ModdedRule.Offset.Z;
+				
+				FTransform Transform{Rot, Pos + Offset, ModdedRule.Scale};
 
-				NewActor->GetComponentByClass<UStaticMeshComponent>()->SetStaticMesh(ModdedRule.Mesh);
-				NewActor->SetActorLocationAndRotation(Pos + Offset, Rot);
-				NewActor->SetActorScale3D(ModdedRule.Scale);
+				if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
+				{
+					InstancerComp->SetStaticMesh(ModdedRule.Mesh);
+					InstancerComp->AddInstance(Transform, true);
+				}
 			}
-			
-			++ObjIdx;
 		}
-	}
-	
-	for (int32 i = SpawnedInstancedMeshes.Num() - 1; i >= ObjIdx; --i)
-	{
-		if (!IsValid(SpawnedInstancedMeshes[i])) return;
-		SpawnedInstancedMeshes[i]->Destroy();
-		SpawnedInstancedMeshes.RemoveAt(i);
+		
+		++RuleIdx;
 	}
 }
 
