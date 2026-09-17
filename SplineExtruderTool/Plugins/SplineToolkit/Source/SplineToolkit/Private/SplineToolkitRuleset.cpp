@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2026 Patrick Vreeburg + Quillan Wielhouwer
 
 #include "SplineToolkitRuleset.h"
 
