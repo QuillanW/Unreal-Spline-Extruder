@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Templates/Function.h"
 #include "SplineToolkitModifier.generated.h"
 
 // The supported data types used by the modifiers
@@ -17,59 +18,29 @@ enum class EModifierDataType : uint8 {
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitModifierValue
 {
-	EModifierDataType DataType = EModifierDataType::Bool;
+	GENERATED_BODY()
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EModifierDataType DataType = EModifierDataType::Bool;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bBoolParameter = false;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float FloatParameter = 0.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector VectorParameter = FVector::ZeroVector;
-};
-
-// An input type for the modifiers
-USTRUCT(BlueprintType)
-struct SPLINETOOLKIT_API FSplineToolkitModifierInput
-{
-	FString Name = "Input";
-	EModifierDataType DataType = EModifierDataType::Bool;
-};
-
-USTRUCT(BlueprintType)
-struct SPLINETOOLKIT_API FSplineToolkitModifierOutput
-{
-	FString Name = "Output";
-	EModifierDataType DataType = EModifierDataType::Bool;
 };
 
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitModifierOperation
 {
-	FString Name = "Operation";
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EModifierDataType InputType = EModifierDataType::Bool;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EModifierDataType OutputType = EModifierDataType::Bool;
-	TFunction<FSplineToolkitModifierValue(const FSplineToolkitModifierValue&)> Apply = [](const FSplineToolkitModifierValue&){ return {}; };
-};
 
-
-
-
-
-
-/// Modifier threshold type
-UENUM(BlueprintType)
-enum class EModifierThresholdOperator : uint8 {
-	MIN UMETA(DisplayName = "Minimum Threshold"),
-	MAX UMETA(DisplayName = "Maximum Threshold"),
-	IF UMETA(DisplayName = "If True"),
-	IFNOT UMETA(DisplayName = "If Not True"),
-};
-
-/// Modifier modification type
-UENUM(BlueprintType)
-enum class EModifierModificationType : uint8 {
-	MULTIPLY UMETA(DisplayName = "Multiply Modification"),
-	DIVIDE UMETA(DisplayName = "Divide Modification"),
-	ADD UMETA(DisplayName = "Add Modification"),
-	SET UMETA(DisplayName = "Set Modification"),
-	INVERT UMETA(DisplayName = "Invert Modification"),
+	TFunction<FSplineToolkitModifierValue(const FSplineToolkitModifierValue&)> Apply = [](const FSplineToolkitModifierValue&){ return FSplineToolkitModifierValue(); };
 };
 
 /// A modifier used by rules
@@ -79,11 +50,12 @@ struct SPLINETOOLKIT_API FSplineToolkitModifier
 public:
 	GENERATED_BODY()
 	
-	
-	
-	// Input Value
-	// Threshold Operator
-	// Modify Value
-	// Modify Operator
-	// Output Value
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString Input = "";
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString Operation = "";
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FSplineToolkitModifierValue Parameter;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString Output = "";
 };

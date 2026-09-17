@@ -2,11 +2,17 @@
 
 #pragma once
 
-#include "AssetDefinitionDefault.h"
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "SplineToolkitModifier.h"
 #include "SplineToolkitRuleset.generated.h"
+
+#pragma region Modifier Operators
+
+
+
+#pragma endregion
+
 
 // ===============================
 //         GENERIC TYPES
