@@ -13,8 +13,14 @@
 #include "Engine/HitResult.h"
 
 #include "SceneManagement.h"
+#include "UnrealEdGlobals.h"
 #include "Components/SplineComponent.h"
+#include "Editor/UnrealEdEngine.h"
+#include "Editor/ComponentVisualizers/Public/SplineComponentVisualizer.h"
+#include "EditorGizmos/EditorTransformGizmoUtil.h"
+#include "EditorGizmos/TransformGizmo.h"
 #include "Snapping/EditorSnappingManager.h"
+#include "SplineToolkitRulesetEditor/Public/Viewport/SplineToolkitRulesetEditorViewport.h"
 
 // localization namespace
 #define LOCTEXT_NAMESPACE "USplineToolkitEditModeInteractiveTool"
@@ -96,6 +102,9 @@ void USplineToolkitEditModeInteractiveTool::OnClickPress(const FInputDeviceRay& 
 {
 	GEditor->SelectNone(false, true, false);
 	
+	FVector ClickedPoint;
+	FindRayHit(PressPos.WorldRay, ClickedPoint);
+	
 	float ClosestDistance = 10000.0f;
 	USplineComponent* ClosestComp = nullptr;
 	int32 ClosestPointIdx = 0;
@@ -110,21 +119,26 @@ void USplineToolkitEditModeInteractiveTool::OnClickPress(const FInputDeviceRay& 
 		for (int32 Idx = 0; Idx < SplineComp->GetNumberOfSplinePoints(); ++Idx)
 		{
 			auto SplinePoint = SplineComp->GetSplinePointAt(Idx, ESplineCoordinateSpace::World);
-			FVector ClickedPoint;
-			FindRayHit(PressPos.WorldRay, ClickedPoint);
 			float Distance = (ClickedPoint - SplinePoint.Position).Length();
 			if (Distance < ClosestDistance)
 			{
 				ClosestDistance = Distance;
 				ClosestComp = SplineComp;
 				ClosestPointIdx = Idx;
-				
-				Properties->StartPoint = ClickedPoint;
-				Properties->EndPoint = SplinePoint.Position;
 			}
 		}
 	}
 	
+	if (ClosestDistance >= 10000.0f) return;
+	
+	Properties->StartPoint = ClickedPoint;
+	Properties->EndPoint = ClosestComp->GetSplinePointAt(ClosestPointIdx, ESplineCoordinateSpace::World).Position;
+	
+	GEditor->SelectComponent(ClosestComp, true, true, true);
+
+	auto Visualizer = StaticCastSharedPtr<FSplineComponentVisualizer>(GUnrealEd->FindComponentVisualizer(USplineComponent::StaticClass()));
+	
+	Visualizer->HandleSelectAllSplinePoints(ClosestComp);
 	
 	// for (FSelectionIterator Iter(*SelectedInfo); Iter; ++Iter)
 	// {
