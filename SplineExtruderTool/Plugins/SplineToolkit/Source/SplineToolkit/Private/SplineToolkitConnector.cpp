@@ -48,7 +48,7 @@ void USplineToolkitConnector::AutoAttach(USplineComponent* Target)
 	if (DistD < DistC) Con.bToEnd = true;
 	
 	Connections.Add(Con);
-	Validate();
+	ReAttach();
 }
 
 void USplineToolkitConnector::FullAutoAttach()
