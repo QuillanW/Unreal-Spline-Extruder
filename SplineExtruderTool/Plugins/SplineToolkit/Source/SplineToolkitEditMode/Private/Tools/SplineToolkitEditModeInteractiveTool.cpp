@@ -2,11 +2,9 @@
 
 #include "Tools/SplineToolkitEditModeInteractiveTool.h"
 #include "InteractiveToolManager.h"
-#include "ToolBuilderUtil.h"
 #include "BaseBehaviors/ClickDragBehavior.h"
 
 // for raycast into World
-#include "AssetSelection.h"
 #include "CollisionQueryParams.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
@@ -14,13 +12,10 @@
 
 #include "SceneManagement.h"
 #include "UnrealEdGlobals.h"
+#include "BaseGizmos/CombinedTransformGizmo.h"
 #include "Components/SplineComponent.h"
 #include "Editor/UnrealEdEngine.h"
-#include "Editor/ComponentVisualizers/Public/SplineComponentVisualizer.h"
-#include "EditorGizmos/EditorTransformGizmoUtil.h"
 #include "EditorGizmos/TransformGizmo.h"
-#include "Snapping/EditorSnappingManager.h"
-#include "SplineToolkitRulesetEditor/Public/Viewport/SplineToolkitRulesetEditorViewport.h"
 
 // localization namespace
 #define LOCTEXT_NAMESPACE "USplineToolkitEditModeInteractiveTool"
@@ -33,6 +28,8 @@ UInteractiveTool* USplineToolkitEditModeInteractiveToolBuilder::BuildTool(const 
 {
 	USplineToolkitEditModeInteractiveTool* NewTool = NewObject<USplineToolkitEditModeInteractiveTool>(SceneState.ToolManager);
 	NewTool->SetWorld(SceneState.World);
+	NewTool->SetGizmoManager(SceneState.GizmoManager);
+	
 	return NewTool;
 }
 
@@ -55,6 +52,11 @@ void USplineToolkitEditModeInteractiveTool::SetWorld(UWorld* World)
 {
 	check(World);
 	this->TargetWorld = World;
+}
+
+void USplineToolkitEditModeInteractiveTool::SetGizmoManager(UInteractiveGizmoManager* Manager)
+{
+	this->GizmoManager = Manager;
 }
 
 
@@ -88,6 +90,13 @@ void USplineToolkitEditModeInteractiveTool::OnUpdateModifierState(int ModifierID
 	}
 }
 
+void USplineToolkitEditModeInteractiveTool::UpdateCurrentSplinePoint(UTransformProxy* Proxy, FTransform NewTransform)
+{
+	EditingSpline->SetLocationAtSplinePoint(EditingPointIdx, NewTransform.GetLocation(), ESplineCoordinateSpace::World);
+	EditingSpline->SetRotationAtSplinePoint(EditingPointIdx, NewTransform.GetRotation().Rotator(), ESplineCoordinateSpace::World);
+	EditingSpline->SetScaleAtSplinePoint(EditingPointIdx,  NewTransform.GetScale3D());
+}
+
 
 FInputRayHit USplineToolkitEditModeInteractiveTool::CanBeginClickDragSequence(const FInputDeviceRay& PressPos)
 {
@@ -98,66 +107,110 @@ FInputRayHit USplineToolkitEditModeInteractiveTool::CanBeginClickDragSequence(co
 }
 
 
-void USplineToolkitEditModeInteractiveTool::OnClickPress(const FInputDeviceRay& PressPos)
-{
-	GEditor->SelectNone(false, true, false);
-	
-	FVector ClickedPoint;
-	FindRayHit(PressPos.WorldRay, ClickedPoint);
-	
-	float ClosestDistance = 10000.0f;
-	USplineComponent* ClosestComp = nullptr;
-	int32 ClosestPointIdx = 0;
-	
-	for (TActorIterator<AActor> ActorIt(TargetWorld); ActorIt; ++ActorIt)
+void USplineToolkitEditModeInteractiveTool::OnClickPress(const FInputDeviceRay& ClickPos)
+{ 
+	IToolsContextQueriesAPI* Queries = GetToolManager()->GetContextQueriesAPI();
+	FViewport* Viewport = Queries->GetFocusedViewport();
+	if (!Viewport)
 	{
-		AActor* Actor = *ActorIt;
-		if (!Actor) continue;
-		USplineComponent* SplineComp = Actor->GetComponentByClass<USplineComponent>();
-		if (!SplineComp) continue;
-		
-		for (int32 Idx = 0; Idx < SplineComp->GetNumberOfSplinePoints(); ++Idx)
-		{
-			auto SplinePoint = SplineComp->GetSplinePointAt(Idx, ESplineCoordinateSpace::World);
-			float Distance = (ClickedPoint - SplinePoint.Position).Length();
-			if (Distance < ClosestDistance)
-			{
-				ClosestDistance = Distance;
-				ClosestComp = SplineComp;
-				ClosestPointIdx = Idx;
-			}
-		}
+		return;
+	}
+
+	FEditorViewportClient* ViewportClient = static_cast<FEditorViewportClient*>(Viewport->GetClient());
+
+	const int32 HitX = ClickPos.ScreenPosition.X;
+	const int32 HitY = ClickPos.ScreenPosition.Y;
+
+	HHitProxy* HitProxy = Viewport->GetHitProxy(HitX, HitY);
+	if (!HitProxy)
+	{
+		return;
+	}
+
+	FSceneViewFamilyContext ViewFamily(
+		FSceneViewFamily::ConstructionValues(Viewport, ViewportClient->GetScene(), ViewportClient->EngineShowFlags));
+	FSceneView* View = ViewportClient->CalcSceneView(&ViewFamily);
+
+	FViewportClick Click(View, ViewportClient, EKeys::LeftMouseButton, IE_Pressed, HitX, HitY);
+
+	if (GUnrealEd->ComponentVisManager.HandleClick(ViewportClient, HitProxy, Click))
+	{
+		return;
 	}
 	
-	if (ClosestDistance >= 10000.0f) return;
-	
-	Properties->StartPoint = ClickedPoint;
-	Properties->EndPoint = ClosestComp->GetSplinePointAt(ClosestPointIdx, ESplineCoordinateSpace::World).Position;
-	
-	GEditor->SelectComponent(ClosestComp, true, true, true);
-
-	auto Visualizer = StaticCastSharedPtr<FSplineComponentVisualizer>(GUnrealEd->FindComponentVisualizer(USplineComponent::StaticClass()));
-	
-	Visualizer->HandleSelectAllSplinePoints(ClosestComp);
-	
-	// for (FSelectionIterator Iter(*SelectedInfo); Iter; ++Iter)
+	// GEditor->SelectNone(false, true, false);
+	//
+	// FVector ClickedPoint;
+	// FindRayHit(PressPos.WorldRay, ClickedPoint);
+	//
+	// float ClosestDistance = 10000.0f;
+	// USplineComponent* ClosestComp = nullptr;
+	// int32 ClosestPointIdx = 0;
+	//
+	// for (TActorIterator<AActor> ActorIt(TargetWorld); ActorIt; ++ActorIt)
 	// {
+	// 	AActor* Actor = *ActorIt;
+	// 	if (!Actor) continue;
+	// 	USplineComponent* SplineComp = Actor->GetComponentByClass<USplineComponent>();
+	// 	if (!SplineComp) continue;
 	// 	
-	// 	AActor* Actor = Cast<AActor>(*Iter);
-	// 	if (Actor)
+	// 	for (int32 Idx = 0; Idx < SplineComp->GetNumberOfSplinePoints(); ++Idx)
 	// 	{
-	// 		if (Actor->GetComponentByClass<USplineComponent>())
-	// 			UE_LOG(LogTemp, Warning, TEXT("SPLINE SELECTED"));
+	// 		auto SplinePoint = SplineComp->GetSplinePointAt(Idx, ESplineCoordinateSpace::World);
+	// 		float Distance = (ClickedPoint - SplinePoint.Position).Length();
+	// 		if (Distance < ClosestDistance)
+	// 		{
+	// 			ClosestDistance = Distance;
+	// 			ClosestComp = SplineComp;
+	// 			ClosestPointIdx = Idx;
+	// 		}
 	// 	}
 	// }
-		
-	// determine whether we are moving first or second point for the drag sequence
+	//
+	// if (ClosestDistance >= 10000.0f) return;
+	//
+	// EditingSpline = ClosestComp;
+	// EditingPointIdx = ClosestPointIdx;
+	//
+	// Properties->StartPoint = ClickedPoint;
+	//
+	// const auto Point = ClosestComp->GetSplinePointAt(ClosestPointIdx, ESplineCoordinateSpace::World);
+	//
+	// Properties->EndPoint = Point.Position;
+	//
+	// // GEditor->SelectComponent(ClosestComp, true, true, true);
+	// //
+	// // auto Visualizer = StaticCastSharedPtr<FSplineComponentVisualizer>(GUnrealEd->FindComponentVisualizer(USplineComponent::StaticClass()));
+	// //
+	// // Visualizer->HandleSelectAllSplinePoints(ClosestComp);
+	//
+	// UCombinedTransformGizmo* Gizmo = GizmoManager->Create3AxisTransformGizmo();
+	//
+	// EditingProxy.SetTransform({Point.Rotation, Point.Position, Point.Scale});
+	// Gizmo->SetActiveTarget(&EditingProxy);
+	//
+	// // Gizmo->SetNewGizmoTransform({Point.Rotation, Point.Position, Point.Scale}, false);
+	//
+	// Gizmo->ActiveTarget->OnTransformChanged.AddUObject(this, &USplineToolkitEditModeInteractiveTool::UpdateCurrentSplinePoint);
+	//
+	// // for (FSelectionIterator Iter(*SelectedInfo); Iter; ++Iter)
+	// // {
+	// // 	
+	// // 	AActor* Actor = Cast<AActor>(*Iter);
+	// // 	if (Actor)
+	// // 	{
+	// // 		if (Actor->GetComponentByClass<USplineComponent>())
+	// // 			UE_LOG(LogTemp, Warning, TEXT("SPLINE SELECTED"));
+	// // 	}
+	// // }
+	// 	
+	// // determine whether we are moving first or second point for the drag sequence
 }
 
 
 void USplineToolkitEditModeInteractiveTool::OnClickDrag(const FInputDeviceRay& DragPos)
 {
-	UpdatePosition(DragPos.WorldRay);
+	
 }
 
 

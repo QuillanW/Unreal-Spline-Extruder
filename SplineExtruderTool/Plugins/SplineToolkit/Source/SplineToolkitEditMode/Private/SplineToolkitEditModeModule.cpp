@@ -1,21 +1,36 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "SplineToolkitEditModeModule.h"
+
+#include "SplineToolkitEditExtension.h"
 #include "SplineToolkitEditModeEditorModeCommands.h"
+#include "UnrealEdGlobals.h"
+#include "Components/SplineComponent.h"
+#include "Editor/UnrealEdEngine.h"
 
 #define LOCTEXT_NAMESPACE "SplineToolkitEditModeModule"
 
 void FSplineToolkitEditModeModule::StartupModule()
 {
-	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
+	if (GUnrealEd)
+	{
+		// Override the normal spline visualizer so we can use our modified version
+		GUnrealEd->UnregisterComponentVisualizer(USplineComponent::StaticClass()->GetFName());
 
+		SplineEditExtension = MakeShareable(new FSplineToolkitEditExtension());
+		GUnrealEd->RegisterComponentVisualizer(USplineComponent::StaticClass()->GetFName(), SplineEditExtension);
+		SplineEditExtension->OnRegister();
+	}
+	
 	FSplineToolkitEditModeEditorModeCommands::Register();
 }
 
 void FSplineToolkitEditModeModule::ShutdownModule()
 {
-	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
-	// we call this function before unloading the module.
+	if (GUnrealEd)
+	{
+		GUnrealEd->UnregisterComponentVisualizer(USplineComponent::StaticClass()->GetFName());
+	}
 
 	FSplineToolkitEditModeEditorModeCommands::Unregister();
 }

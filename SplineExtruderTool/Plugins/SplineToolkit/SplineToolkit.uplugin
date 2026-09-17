@@ -28,7 +28,7 @@
 		{
 			"Name": "SplineToolkitEditMode",
 			"Type": "Editor",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "PostEngineInit"
 		}
 	]
 }

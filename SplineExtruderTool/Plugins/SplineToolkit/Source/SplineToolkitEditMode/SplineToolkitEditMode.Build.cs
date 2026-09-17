@@ -44,7 +44,8 @@ public class SplineToolkitEditMode : ModuleRules
 				"UnrealEd",
 				"LevelEditor",
 				"InteractiveToolsFramework",
-				"EditorInteractiveToolsFramework"
+				"EditorInteractiveToolsFramework",
+				"ComponentVisualizers",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

@@ -3,7 +3,9 @@
 #pragma once
 
 #include "InteractiveToolBuilder.h"
+#include "BaseGizmos/TransformProxy.h"
 #include "BaseTools/ClickDragTool.h"
+#include "Components/SplineComponent.h"
 #include "SplineToolkitEditModeInteractiveTool.generated.h"
 
 
@@ -59,6 +61,7 @@ class SPLINETOOLKITEDITMODE_API USplineToolkitEditModeInteractiveTool : public U
 
 public:
 	virtual void SetWorld(UWorld* World);
+	virtual void SetGizmoManager(UInteractiveGizmoManager* Manager);
 
 	/** UInteractiveTool overrides */
 	virtual void Setup() override;
@@ -81,15 +84,21 @@ protected:
 	/** Properties of the tool are stored here */
 	UPROPERTY()
 	TObjectPtr<USplineToolkitEditModeInteractiveToolProperties> Properties;
+	
+	void UpdateCurrentSplinePoint(UTransformProxy* Proxy, FTransform NewTransform);
 
 
 protected:
 	UWorld* TargetWorld = nullptr;		// target World we will raycast into
-
+	UInteractiveGizmoManager* GizmoManager;
+	
+	USplineComponent* EditingSpline = nullptr;
+	int32 EditingPointIdx = 0;
+	
 	static const int MoveSecondPointModifierID = 1;		// identifier we associate with the shift key
 	bool bSecondPointModifierDown = false;				// flag we use to keep track of modifier state
 	bool bMoveSecondPoint = false;						// flag we use to keep track of which point we are moving during a press-drag
-
+	
 	FInputRayHit FindRayHit(const FRay& WorldRay, FVector& HitPos);		// raycasts into World
 	void UpdatePosition(const FRay& WorldRay);					// updates first or second point based on raycast
 	void UpdateDistance();										// updates distance

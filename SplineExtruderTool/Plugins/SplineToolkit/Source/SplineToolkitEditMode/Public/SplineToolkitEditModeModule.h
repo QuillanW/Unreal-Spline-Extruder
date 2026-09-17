@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "SplineToolkitEditExtension.h"
 #include "Modules/ModuleManager.h"
 
 /**
@@ -15,4 +16,7 @@ public:
 	/** IModuleInterface implementation */
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
+	
+protected:
+	TSharedPtr<FSplineToolkitEditExtension> SplineEditExtension;
 };

@@ -73,6 +73,11 @@ void USplineToolkitEditModeEditorMode::CreateToolkit()
 	Toolkit = MakeShareable(new FSplineToolkitEditModeEditorModeToolkit);
 }
 
+bool USplineToolkitEditModeEditorMode::IsSelectionAllowed(AActor* InActor, bool bInSelection) const
+{
+	return IsValid(InActor->GetComponentByClass<USplineComponent>());
+}
+
 TMap<FName, TArray<TSharedPtr<FUICommandInfo>>> USplineToolkitEditModeEditorMode::GetModeCommands() const
 {
 	return FSplineToolkitEditModeEditorModeCommands::Get().GetCommands();

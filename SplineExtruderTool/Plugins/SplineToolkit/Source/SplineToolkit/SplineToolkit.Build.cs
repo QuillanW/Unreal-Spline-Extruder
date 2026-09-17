@@ -28,7 +28,7 @@ public class SplineToolkit : ModuleRules
 				"Core",
 				"AssetDefinition",
 				"UnrealEd",
-				"ProceduralMeshComponent",
+				"ProceduralMeshComponent"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);

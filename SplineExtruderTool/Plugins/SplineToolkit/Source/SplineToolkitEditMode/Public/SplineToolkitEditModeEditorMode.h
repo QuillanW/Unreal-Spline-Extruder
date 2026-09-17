@@ -31,5 +31,8 @@ public:
 	virtual void Enter() override;
 	virtual void ActorSelectionChangeNotify() override;
 	virtual void CreateToolkit() override;
+	
+	virtual bool IsSelectionAllowed(AActor* InActor, bool bInSelection) const override;
+	
 	virtual TMap<FName, TArray<TSharedPtr<FUICommandInfo>>> GetModeCommands() const override;
 };
