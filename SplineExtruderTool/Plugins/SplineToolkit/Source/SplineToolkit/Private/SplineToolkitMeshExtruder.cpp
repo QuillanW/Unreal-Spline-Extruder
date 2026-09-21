@@ -2,6 +2,7 @@
 #include "SplineToolkitMeshExtruder.h"
 
 #include "Components/SplineComponent.h"
+#include "Misc/Zip.h"
 
 int32 GSplineToolkitShowExtruderRmfSamples = 0;
 static FAutoConsoleVariableRef CVarShowExtruderRmfSamples(
@@ -41,25 +42,29 @@ void USplineToolkitMeshExtruder::OnRegister()
 
 	if (this->Ruleset)
 	{
-		this->Ruleset->OnChanged.AddLambda([this]()
+		this->Ruleset->OnShouldRegenerate.AddLambda([this]
 		{
-			Regenerate();
+			if (this->bUpdateOnRulesetChange)
+				Regenerate();
+		});
+		this->Ruleset->OnReapplyMaterials.AddLambda([this]
+		{
+			ReapplyMaterials();
 		});
 	}
 
-	GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
+	for (auto& Data : this->OutMeshes)
 	{
-		for (const auto& Data : this->OutMeshes)
+		if (IsValid(Data.MeshActor))
 		{
-			if (IsValid(Data.MeshActor))
-			{
-				Data.MeshActor->AttachToActor(GetOwner(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-				UE_LOG(LogTemp, Warning, TEXT("Owner root: %s, MeshActor root: %s"),
-				       *GetNameSafe(GetOwner()->GetRootComponent()),
-				       *GetNameSafe(Data.MeshActor->GetRootComponent()));
-			}
+			Data.MeshActor->AttachToActor(GetOwner(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+			UE_LOG(LogTemp, Warning, TEXT("Owner root: %s, MeshActor root: %s"),
+			       *GetNameSafe(GetOwner()->GetRootComponent()),
+			       *GetNameSafe(Data.MeshActor->GetRootComponent()));
+
+			Data.ProceduralMeshComponent = Data.MeshActor->GetComponentByClass<UProceduralMeshComponent>();
 		}
-	});
+	}
 }
 
 
@@ -137,7 +142,6 @@ void USplineToolkitMeshExtruder::Regenerate()
 void USplineToolkitMeshExtruder::RegenerateInternal()
 {
 	this->bRegenerate = false;
-
 	ClearConservative();
 
 	if (!this->Ruleset->IsValidLowLevelFast())
@@ -160,6 +164,18 @@ void USplineToolkitMeshExtruder::RegenerateInternal()
 		{
 			ComputeMesh(Rule, MeshComponent, Data);
 		}
+	}
+}
+
+
+void USplineToolkitMeshExtruder::ReapplyMaterials()
+{
+	for (const auto& [Rule, Data] : UE::Zip(this->Ruleset->ExtrusionRules, this->OutMeshes))
+	{
+		if (!IsValid(Data.ProceduralMeshComponent))
+			continue;
+		Data.ProceduralMeshComponent->SetMaterial(0, Rule.Material);
+		Data.ProceduralMeshComponent->SetOverlayMaterial(Rule.OverlayMaterial);
 	}
 }
 
@@ -694,6 +710,9 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 
 	MeshComponent->CreateMeshSection(0, DrawData.Positions, Indices, DrawData.Normals, DrawData.Uv0, {},
 	                                 DrawData.Tangents, true);
+
+	MeshComponent->SetMaterial(0, Rule.Material);
+	MeshComponent->SetOverlayMaterial(Rule.OverlayMaterial);
 }
 
 
@@ -702,8 +721,15 @@ void USplineToolkitMeshExtruder::PostEditChangeProperty(FPropertyChangedEvent& P
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	if (this->Ruleset->IsValidLowLevel())
-		this->Ruleset->OnChanged.AddLambda([this]
+	{
+		this->Ruleset->OnShouldRegenerate.AddLambda([this]
 		{
-			Regenerate();
+			if (this->bUpdateOnRulesetChange)
+				Regenerate();
 		});
+		this->Ruleset->OnReapplyMaterials.AddLambda([this]
+		{
+			ReapplyMaterials();
+		});
+	}
 }

@@ -2,7 +2,9 @@
 
 #include "SplineToolkitInstantiator.h"
 
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SplineComponent.h"
+#include "Misc/Zip.h"
 
 // Sets default values for this component's properties
 USplineToolkitInstantiator::USplineToolkitInstantiator()
@@ -15,6 +17,7 @@ USplineToolkitInstantiator::USplineToolkitInstantiator()
 	// ...
 }
 
+
 // Called when the game starts
 void USplineToolkitInstantiator::BeginPlay()
 {
@@ -23,16 +26,25 @@ void USplineToolkitInstantiator::BeginPlay()
 	// ...
 }
 
+
 void USplineToolkitInstantiator::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
 }
 
+
 FSplineToolkitRmfSample USplineToolkitInstantiator::GetRMFSampleAtDistance(
 	float Distance, FSplineToolkitRmfSample& PrevSample) const
 {
-	if (Distance <= 0.0f) return PrevSample;
-	
+	if (Distance <= 0.0f)
+	{
+		auto NewSample = PrevSample;
+		const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
+		NewSample.Reference = NewSample.Reference.RotateAngleAxis(Roll, NewSample.Tangent);
+		NewSample.Bitangent = NewSample.Tangent.Cross(NewSample.Reference);
+		return NewSample;
+	}
+
 	const FVector Position = this->SplineComponent->GetLocationAtDistanceAlongSpline(
 		Distance, ESplineCoordinateSpace::World);
 	const FVector Tangent = this->SplineComponent->GetTangentAtDistanceAlongSpline(
@@ -72,6 +84,7 @@ FSplineToolkitRmfSample USplineToolkitInstantiator::GetRMFSampleAtDistance(
 	return NewSample;
 }
 
+
 void USplineToolkitInstantiator::OnRegister()
 {
 	Super::OnRegister();
@@ -93,16 +106,27 @@ void USplineToolkitInstantiator::OnRegister()
 	}
 
 	if (Ruleset->IsValidLowLevel())
-		Ruleset->OnChanged.AddLambda([this]
+	{
+		Ruleset->OnShouldRegenerate.AddLambda([this]
 		{
 			if (AutoUpdate)
 				Regenerate();
 		});
+		Ruleset->OnReapplyMaterials.AddLambda([this]
+		{
+			ReapplyMaterials();
+		});
+	}
 }
+
 
 void USplineToolkitInstantiator::RegenerateInternal()
 {
 	bRegenerate = false;
+
+	// Easier to just clear all and regenerate since the components are small and quick to load 
+	// And I'm kinda lazy while writing this at midnight...
+	Clear();
 
 	if (!this->Ruleset->IsValidLowLevelFast())
 		return;
@@ -117,14 +141,9 @@ void USplineToolkitInstantiator::RegenerateInternal()
 		.Tangent = this->SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
 		.Reference = this->SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
 	};
-	// Set the roll on the first sample
-	LastSample.Bitangent = LastSample.Tangent.Cross(LastSample.Reference);
-	const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(0.0f, ESplineCoordinateSpace::World);
-	LastSample.Reference = LastSample.Reference.RotateAngleAxis(Roll, LastSample.Tangent);
-	LastSample.Bitangent = LastSample.Tangent.Cross(LastSample.Reference);
 
-	int32 ObjIdx = 0;
-	
+	int32 RuleIdx = 0;
+
 	// Go over each rule
 	for (const auto& Rule : Ruleset->InstantiationRules)
 	{
@@ -144,56 +163,69 @@ void USplineToolkitInstantiator::RegenerateInternal()
 				continue;
 
 			FSplineToolkitRmfSample Sample = GetRMFSampleAtDistance(CurrentDist, LastSample);
-			
+
 			FVector Pos = Sample.Position;
 			FVector Rht = Sample.Bitangent;
 			FVector Fwd = Sample.Tangent;
 			FVector Up = Sample.Reference;
 			FRotator Rot = FRotationMatrix::MakeFromXZ(Fwd, Up).Rotator();
 
-			TObjectPtr<AActor> NewActor = {};
-			if (ObjIdx >= SpawnedInstancedMeshes.Num())
+			TObjectPtr<AActor> InstancerActor = {};
+			if (RuleIdx >= SpawnedInstancedMeshes.Num())
 			{
-				NewActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), Pos, Rot);
+				InstancerActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), Pos, Rot);
 #if WITH_EDITOR
-				NewActor->SetActorLabel("InstancedObject" + FString::FromInt(ObjIdx));
+				InstancerActor->SetActorLabel("SplineInstantiatorInstancer" + FString::FromInt(RuleIdx));
 #endif
-				if (NewActor)
+				if (InstancerActor)
 				{
-					SpawnedInstancedMeshes.Add(NewActor);
-					UStaticMeshComponent* NewMeshComp = NewObject<UStaticMeshComponent>(NewActor);
+					SpawnedInstancedMeshes.Add(InstancerActor);
+					UInstancedStaticMeshComponent* NewMeshComp = NewObject<UInstancedStaticMeshComponent>(
+						InstancerActor);
+					NewMeshComp->SetMaterial(0, Rule.Material);
+					NewMeshComp->SetOverlayMaterial(Rule.OverlayMaterial);
 					NewMeshComp->RegisterComponent();
-					NewActor->SetRootComponent(NewMeshComp);
-					NewActor->AttachToActor(this->GetOwner(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+					InstancerActor->SetRootComponent(NewMeshComp);
+					InstancerActor->AttachToActor(this->GetOwner(),
+					                              FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 				}
 			}
 			else
 			{
-				NewActor = SpawnedInstancedMeshes[ObjIdx];
+				InstancerActor = SpawnedInstancedMeshes[RuleIdx];
 			}
-			
-			if (NewActor)
+
+			if (InstancerActor)
 			{
 				FVector Offset = Rht * ModdedRule.Offset.X;
 				Offset += Fwd * ModdedRule.Offset.Y;
 				Offset += Up * ModdedRule.Offset.Z;
 
-				NewActor->GetComponentByClass<UStaticMeshComponent>()->SetStaticMesh(ModdedRule.Mesh);
-				NewActor->SetActorLocationAndRotation(Pos + Offset, Rot);
-				NewActor->SetActorScale3D(ModdedRule.Scale);
+				FTransform Transform{Rot, Pos + Offset, ModdedRule.Scale};
+
+				if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
+				{
+					InstancerComp->SetStaticMesh(ModdedRule.Mesh);
+					InstancerComp->AddInstance(Transform, true);
+				}
 			}
-			
-			++ObjIdx;
 		}
-	}
-	
-	for (int32 i = SpawnedInstancedMeshes.Num() - 1; i >= ObjIdx; --i)
-	{
-		if (!IsValid(SpawnedInstancedMeshes[i])) return;
-		SpawnedInstancedMeshes[i]->Destroy();
-		SpawnedInstancedMeshes.RemoveAt(i);
+
+		++RuleIdx;
 	}
 }
+
+
+void USplineToolkitInstantiator::ReapplyMaterials()
+{
+	for (const auto& [Rule, Actor] : UE::Zip(this->Ruleset->InstantiationRules, this->SpawnedInstancedMeshes))
+	{
+		auto* Comp = Actor->GetComponentByClass<UInstancedStaticMeshComponent>();
+		Comp->SetMaterial(0, Rule.Material);
+		Comp->SetOverlayMaterial(Rule.OverlayMaterial);
+	}
+}
+
 
 void USplineToolkitInstantiator::OnComponentDestroyed(bool bDestroyingHierarchy)
 {
@@ -201,6 +233,7 @@ void USplineToolkitInstantiator::OnComponentDestroyed(bool bDestroyingHierarchy)
 
 	Clear();
 }
+
 
 // Called every frame
 void USplineToolkitInstantiator::TickComponent(
@@ -213,10 +246,12 @@ void USplineToolkitInstantiator::TickComponent(
 		RegenerateInternal();
 }
 
+
 void USplineToolkitInstantiator::Regenerate()
 {
 	bRegenerate = true;
 }
+
 
 void USplineToolkitInstantiator::Clear()
 {
@@ -228,6 +263,7 @@ void USplineToolkitInstantiator::Clear()
 	SpawnedInstancedMeshes.Empty();
 }
 
+
 void USplineToolkitInstantiator::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -235,9 +271,15 @@ void USplineToolkitInstantiator::PostEditChangeProperty(FPropertyChangedEvent& P
 		Regenerate();
 
 	if (Ruleset->IsValidLowLevel())
-		Ruleset->OnChanged.AddLambda([this]
+	{
+		Ruleset->OnShouldRegenerate.AddLambda([this]
 		{
 			if (AutoUpdate)
 				Regenerate();
 		});
+		Ruleset->OnReapplyMaterials.AddLambda([this]
+		{
+			ReapplyMaterials();
+		});
+	}
 }
