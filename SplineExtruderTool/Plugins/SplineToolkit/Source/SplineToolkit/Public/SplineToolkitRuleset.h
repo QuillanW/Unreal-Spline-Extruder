@@ -90,6 +90,12 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UStaticMesh* Mesh = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<class UMaterialInterface> Material;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<class UMaterialInterface> OverlayMaterial;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float StepPrecision = 1.0f;
@@ -119,6 +125,12 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UStaticMesh* Mesh = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<class UMaterialInterface> Material;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<class UMaterialInterface> OverlayMaterial;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector Offset;
@@ -183,8 +195,11 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty( FPropertyChangedEvent & PropertyChangedEvent ) override;
 
-	DECLARE_EVENT( UMyDataAsset , FOnChanged );
-	FOnChanged OnChanged;
+	DECLARE_EVENT( USplineToolkitRuleset , FOnShouldRegenerate );
+	FOnShouldRegenerate OnShouldRegenerate;
+
+	DECLARE_EVENT( USplineToolkitRuleset , FOnReapplyMaterials );
+	FOnReapplyMaterials OnReapplyMaterials;
 #endif
 };
 

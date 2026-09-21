@@ -30,6 +30,7 @@ protected:
 	FSplineToolkitRmfSample GetRMFSampleAtDistance(float d, FSplineToolkitRmfSample& prevSample) const;
 	
 	void RegenerateInternal();
+	void ReapplyMaterials();
 	
 	bool bRegenerate = false;
 
