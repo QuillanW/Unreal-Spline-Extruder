@@ -163,10 +163,13 @@ FSplineToolkitRulesetPreviewScene::FSplineToolkitRulesetPreviewScene(Constructio
 	// Disable killing actors outside of the world
 	AWorldSettings* WorldSettings = GetWorld()->GetWorldSettings(true);
 	WorldSettings->bEnableWorldBoundsChecks = false;
-
+	
+	UObject* Ruleset = GetEditor()->GetRuleset();
+	
 	// Auto update preview
-	FCoreUObjectDelegates::OnObjectPropertyChanged.AddLambda([this](UObject*, FPropertyChangedEvent&)
+	FCoreUObjectDelegates::OnObjectPropertyChanged.AddLambda([this, Ruleset](UObject* Obj, FPropertyChangedEvent&)
 	{
+		if (Obj != Ruleset) return;
 		UpdatePreview();
 	});
 
@@ -242,11 +245,13 @@ void FSplineToolkitRulesetPreviewScene::UpdateSplinePreview(SplinePreview previe
 void FSplineToolkitRulesetPreviewScene::UpdatePreview()
 {
 	if (!AutoUpdate) return;
+	
 	for (auto Actor : PreviewActors)
 	{
 		if (!Actor.IsResolved() || !Actor->IsValidLowLevel()) continue;
 		if (auto* Instantiator = Actor->GetComponentByClass<USplineToolkitInstantiator>())
 			Instantiator->Regenerate();
+			
 		if (auto* Extruder = Actor->GetComponentByClass<USplineToolkitMeshExtruder>())
 			Extruder->Regenerate();
 		// TODO: Add the other components
