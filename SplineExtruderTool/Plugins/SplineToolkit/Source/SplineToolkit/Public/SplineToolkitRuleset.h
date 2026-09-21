@@ -2,15 +2,22 @@
 
 #pragma once
 
-#include "AssetDefinitionDefault.h"
 #include "CoreMinimal.h"
+#include "Components/SplineComponent.h"
 #include "Engine/DataAsset.h"
 #include "SplineToolkitRuleset.generated.h"
+
+// ===============================
+//         HELPER FUNCS
+// ===============================
+
+float GetCurvatureAtDistanceAlongSpline(USplineComponent* Spline, float Distance);
 
 // ===============================
 //         GENERIC TYPES
 // ===============================
 
+class USplineRulesetModifierBase;
 // RMF Sample type
 USTRUCT()
 struct FSplineToolkitRmfSample
@@ -41,39 +48,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FString Type;
-};
-
-/// Modifier threshold type
-UENUM(BlueprintType)
-enum class EModifierThresholdOperator : uint8 {
-	MIN UMETA(DisplayName = "Minimum Threshold"),
-	MAX UMETA(DisplayName = "Maximum Threshold"),
-	IF UMETA(DisplayName = "If True"),
-	IFNOT UMETA(DisplayName = "If Not True"),
-};
-
-/// Modifier modification type
-UENUM(BlueprintType)
-enum class EModifierModificationType : uint8 {
-	MULTIPLY UMETA(DisplayName = "Multiply Modification"),
-	DIVIDE UMETA(DisplayName = "Divide Modification"),
-	ADD UMETA(DisplayName = "Add Modification"),
-	SET UMETA(DisplayName = "Set Modification"),
-	INVERT UMETA(DisplayName = "Invert Modification"),
-};
-
-/// A modifier used by rules
-USTRUCT(BlueprintType)
-struct SPLINETOOLKIT_API FSplineToolkitRuleModifier
-{
-public:
-	GENERATED_BODY()
-	
-	// Input Value
-	// Threshold Operator
-	// Modify Value
-	// Modify Operator
-	// Output Value
 };
 
 
@@ -112,8 +86,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector Scale = FVector::OneVector;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<FSplineToolkitRuleModifier> Modifiers;
+	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
+	TArray<TObjectPtr<USplineRulesetModifierBase>> Modifiers;
 };
 
 /// Extrusion rule for its matching component

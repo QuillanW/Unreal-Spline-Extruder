@@ -2,6 +2,7 @@
 
 #include "SplineToolkitInstantiator.h"
 
+#include "SplineToolkitModifier.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SplineComponent.h"
 #include "Misc/Zip.h"
@@ -119,6 +120,16 @@ void USplineToolkitInstantiator::OnRegister()
 	}
 }
 
+USplineRulesetModifierBase* USplineToolkitInstantiator::GetOrCreateModifierInstance(TSubclassOf<USplineRulesetModifierBase> Class)
+{
+	if (USplineRulesetModifierBase** Found = ModifierInstanceCache.Find(Class))
+	{
+		return *Found;
+	}
+	USplineRulesetModifierBase* NewInstance = NewObject<USplineRulesetModifierBase>(GetTransientPackage(), Class);
+	ModifierInstanceCache.Add(Class, NewInstance);
+	return NewInstance;
+}
 
 void USplineToolkitInstantiator::RegenerateInternal()
 {
@@ -150,8 +161,21 @@ void USplineToolkitInstantiator::RegenerateInternal()
 		// Loop over the spline at a set distance of precision. Applying the rules at each point
 		for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += fmax(Rule.StepPrecision, 1.0f))
 		{
-			// TODO: Apply modifiers
-			const auto ModdedRule = Rule;
+			FSplineToolkitStepContext Context;
+			Context.SplineComponent = SplineComponent;
+			Context.TimeAlongSpline = SplineComponent->GetTimeAtDistanceAlongSpline(CurrentDist);
+			Context.DistanceAlongSpline = CurrentDist;
+			Context.bCross = false; // TODO: Implement this pls Patrick :D
+			Context.bSplit = false; // TODO: Implement once we got the components finished up
+			Context.Curvature = GetCurvatureAtDistanceAlongSpline(SplineComponent, CurrentDist);
+			Context.WorldTransform = SplineComponent->GetTransformAtDistanceAlongSpline(CurrentDist, ESplineCoordinateSpace::World);
+
+			FSplineToolkitInstantiationRule ModdedRule = Rule;
+			for (USplineRulesetModifierBase* Modifier : Rule.Modifiers)
+			{
+				if (!Modifier) continue;
+				ModdedRule = Modifier->ModifyStep(Context, ModdedRule);
+			}
 
 			// Check if enabled (Can be changed by modifier, so checking each step)
 			if (!ModdedRule.Enabled)

@@ -26,13 +26,17 @@ public:
 	
 protected:
 	virtual void OnRegister() override;
-	
+	USplineRulesetModifierBase* GetOrCreateModifierInstance(TSubclassOf<USplineRulesetModifierBase> Class);
+
 	FSplineToolkitRmfSample GetRMFSampleAtDistance(float d, FSplineToolkitRmfSample& prevSample) const;
 	
 	void RegenerateInternal();
 	void ReapplyMaterials();
 	
 	bool bRegenerate = false;
+	
+	UPROPERTY(Transient)
+	TMap<TSubclassOf<USplineRulesetModifierBase>, USplineRulesetModifierBase*> ModifierInstanceCache;
 
 public:
 	// Called every frame

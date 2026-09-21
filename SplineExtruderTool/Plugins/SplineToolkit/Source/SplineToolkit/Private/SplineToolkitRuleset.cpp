@@ -2,7 +2,29 @@
 
 #include "SplineToolkitRuleset.h"
 
+float GetCurvatureAtDistanceAlongSpline(USplineComponent* Spline, float Distance)
+{
+	float InputKey = Spline->GetInputKeyValueAtDistanceAlongSpline(Distance);
+
+	const FInterpCurveVector& PositionCurve = Spline->GetSplinePointsPosition();
+
+	FVector FirstDeriv  = PositionCurve.EvalDerivative(InputKey, FVector::ZeroVector);
+	FVector SecondDeriv = PositionCurve.EvalSecondDerivative(InputKey, FVector::ZeroVector);
+
+	float SpeedSq = FirstDeriv.SizeSquared();
+	if (SpeedSq < SMALL_NUMBER)
+	{
+		return 0.0f;
+	}
+	
+	float CrossMagnitude = FVector::CrossProduct(FirstDeriv, SecondDeriv).Size();
+	float Speed = FMath::Sqrt(SpeedSq);
+
+	return CrossMagnitude / (Speed * Speed * Speed);
+}
+
 #if WITH_EDITOR
+
 void USplineToolkitRuleset::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
