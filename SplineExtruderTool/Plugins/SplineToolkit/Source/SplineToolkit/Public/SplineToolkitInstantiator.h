@@ -32,6 +32,7 @@ protected:
 	void ApplyModifiers(FSplineToolkitInstantiationRule& Rule, float CurrentDist);
 	
 	void RegenerateInternal();
+	void ReapplyMaterials();
 	
 	bool bRegenerate = false;
 	

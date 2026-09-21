@@ -4,6 +4,7 @@
 
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SplineComponent.h"
+#include "Misc/Zip.h"
 
 // Sets default values for this component's properties
 USplineToolkitInstantiator::USplineToolkitInstantiator()
@@ -31,6 +32,7 @@ USplineToolkitInstantiator::USplineToolkitInstantiator()
 	});
 }
 
+
 // Called when the game starts
 void USplineToolkitInstantiator::BeginPlay()
 {
@@ -39,10 +41,12 @@ void USplineToolkitInstantiator::BeginPlay()
 	// ...
 }
 
+
 void USplineToolkitInstantiator::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
 }
+
 
 FSplineToolkitRmfSample USplineToolkitInstantiator::GetRMFSampleAtDistance(
 	float Distance, FSplineToolkitRmfSample& PrevSample) const
@@ -55,7 +59,7 @@ FSplineToolkitRmfSample USplineToolkitInstantiator::GetRMFSampleAtDistance(
 		NewSample.Bitangent = NewSample.Tangent.Cross(NewSample.Reference);
 		return NewSample;
 	}
-	
+
 	const FVector Position = this->SplineComponent->GetLocationAtDistanceAlongSpline(
 		Distance, ESplineCoordinateSpace::World);
 	const FVector Tangent = this->SplineComponent->GetTangentAtDistanceAlongSpline(
@@ -132,12 +136,19 @@ void USplineToolkitInstantiator::OnRegister()
 	}
 
 	if (Ruleset->IsValidLowLevel())
-		Ruleset->OnChanged.AddLambda([this]
+	{
+		Ruleset->OnShouldRegenerate.AddLambda([this]
 		{
 			if (AutoUpdate)
 				Regenerate();
 		});
+		Ruleset->OnReapplyMaterials.AddLambda([this]
+		{
+			ReapplyMaterials();
+		});
+	}
 }
+
 
 void USplineToolkitInstantiator::RegenerateInternal()
 {
@@ -160,9 +171,9 @@ void USplineToolkitInstantiator::RegenerateInternal()
 		.Tangent = this->SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
 		.Reference = this->SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
 	};
-	
+
 	int32 RuleIdx = 0;
-	
+
 	// Go over each rule
 	for (const auto& Rule : Ruleset->InstantiationRules)
 	{
@@ -202,23 +213,27 @@ void USplineToolkitInstantiator::RegenerateInternal()
 				if (InstancerActor)
 				{
 					SpawnedInstancedMeshes.Add(InstancerActor);
-					UInstancedStaticMeshComponent* NewMeshComp = NewObject<UInstancedStaticMeshComponent>(InstancerActor);
+					UInstancedStaticMeshComponent* NewMeshComp = NewObject<UInstancedStaticMeshComponent>(
+						InstancerActor);
+					NewMeshComp->SetMaterial(0, Rule.Material);
+					NewMeshComp->SetOverlayMaterial(Rule.OverlayMaterial);
 					NewMeshComp->RegisterComponent();
 					InstancerActor->SetRootComponent(NewMeshComp);
-					InstancerActor->AttachToActor(this->GetOwner(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+					InstancerActor->AttachToActor(this->GetOwner(),
+					                              FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 				}
 			}
 			else
 			{
 				InstancerActor = SpawnedInstancedMeshes[RuleIdx];
 			}
-			
+
 			if (InstancerActor)
 			{
 				FVector Offset = Rht * ModdedRule.Offset.X;
 				Offset += Fwd * ModdedRule.Offset.Y;
 				Offset += Up * ModdedRule.Offset.Z;
-				
+
 				FTransform Transform{Rot, Pos + Offset, ModdedRule.Scale};
 
 				if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
@@ -228,10 +243,22 @@ void USplineToolkitInstantiator::RegenerateInternal()
 				}
 			}
 		}
-		
+
 		++RuleIdx;
 	}
 }
+
+
+void USplineToolkitInstantiator::ReapplyMaterials()
+{
+	for (const auto& [Rule, Actor] : UE::Zip(this->Ruleset->InstantiationRules, this->SpawnedInstancedMeshes))
+	{
+		auto* Comp = Actor->GetComponentByClass<UInstancedStaticMeshComponent>();
+		Comp->SetMaterial(0, Rule.Material);
+		Comp->SetOverlayMaterial(Rule.OverlayMaterial);
+	}
+}
+
 
 void USplineToolkitInstantiator::OnComponentDestroyed(bool bDestroyingHierarchy)
 {
@@ -239,6 +266,7 @@ void USplineToolkitInstantiator::OnComponentDestroyed(bool bDestroyingHierarchy)
 
 	Clear();
 }
+
 
 // Called every frame
 void USplineToolkitInstantiator::TickComponent(
@@ -251,10 +279,12 @@ void USplineToolkitInstantiator::TickComponent(
 		RegenerateInternal();
 }
 
+
 void USplineToolkitInstantiator::Regenerate()
 {
 	bRegenerate = true;
 }
+
 
 void USplineToolkitInstantiator::Clear()
 {
@@ -266,6 +296,7 @@ void USplineToolkitInstantiator::Clear()
 	SpawnedInstancedMeshes.Empty();
 }
 
+
 void USplineToolkitInstantiator::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -273,9 +304,15 @@ void USplineToolkitInstantiator::PostEditChangeProperty(FPropertyChangedEvent& P
 		Regenerate();
 
 	if (Ruleset->IsValidLowLevel())
-		Ruleset->OnChanged.AddLambda([this]
+	{
+		Ruleset->OnShouldRegenerate.AddLambda([this]
 		{
 			if (AutoUpdate)
 				Regenerate();
 		});
+		Ruleset->OnReapplyMaterials.AddLambda([this]
+		{
+			ReapplyMaterials();
+		});
+	}
 }

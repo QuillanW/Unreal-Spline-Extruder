@@ -81,6 +81,9 @@ public:
 	void ClearConservative();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
+	bool bUpdateOnRulesetChange = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	bool bUpdateOnSplineChange = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
@@ -92,6 +95,7 @@ public:
 private:
 	
 	void RegenerateInternal();
+	void ReapplyMaterials();
 	
 	bool bRegenerate = false;
 

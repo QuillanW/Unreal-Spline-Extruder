@@ -6,7 +6,11 @@
 void USplineToolkitRuleset::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-	OnChanged.Broadcast();
+	FString Name = PropertyChangedEvent.GetPropertyName().ToString();
+	if (Name.Contains("Material"))
+		OnReapplyMaterials.Broadcast();
+	else
+		OnShouldRegenerate.Broadcast();
 }
 #endif
 
