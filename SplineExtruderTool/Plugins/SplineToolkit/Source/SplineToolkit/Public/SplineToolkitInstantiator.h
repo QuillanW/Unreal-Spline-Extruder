@@ -29,9 +29,15 @@ protected:
 	
 	FSplineToolkitRmfSample GetRMFSampleAtDistance(float d, FSplineToolkitRmfSample& prevSample) const;
 	
+	void ApplyModifiers(FSplineToolkitInstantiationRule& Rule, float CurrentDist);
+	
 	void RegenerateInternal();
 	
 	bool bRegenerate = false;
+	
+	FSplineToolkitModifierDefaults Modifiers = {};
+	
+	TMap<EModifierOutputTypes, TFunction<void(FSplineToolkitInstantiationRule&, const FSplineToolkitModifierValue&)>> ModifierOutputs = {};
 
 public:
 	// Called every frame

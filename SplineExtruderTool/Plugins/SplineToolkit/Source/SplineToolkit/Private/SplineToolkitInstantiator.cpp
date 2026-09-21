@@ -8,12 +8,27 @@
 // Sets default values for this component's properties
 USplineToolkitInstantiator::USplineToolkitInstantiator()
 {
-	// Set this component to be initialized when the game starts, and to be ticked
-	// every frame.  You can turn these features off to improve performance if you
-	// don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-
-	// ...
+	
+	ModifierOutputs.Add(EModifierOutputTypes::Enabled, [this](FSplineToolkitInstantiationRule& Rule, const FSplineToolkitModifierValue& Val)
+	{
+		Rule.Enabled = Val.bBoolParameter;
+	});
+	
+	ModifierOutputs.Add(EModifierOutputTypes::Offset, [this](FSplineToolkitInstantiationRule& Rule, const FSplineToolkitModifierValue& Val)
+	{
+		Rule.Offset = Val.VectorParameter;
+	});
+	
+	ModifierOutputs.Add(EModifierOutputTypes::Scale, [this](FSplineToolkitInstantiationRule& Rule, const FSplineToolkitModifierValue& Val)
+	{
+		Rule.Scale = Val.VectorParameter;
+	});
+	
+	ModifierOutputs.Add(EModifierOutputTypes::Spacing, [this](FSplineToolkitInstantiationRule& Rule, const FSplineToolkitModifierValue& Val)
+	{
+		Rule.Spacing = Val.FloatParameter;
+	});
 }
 
 // Called when the game starts
@@ -80,6 +95,22 @@ FSplineToolkitRmfSample USplineToolkitInstantiator::GetRMFSampleAtDistance(
 	return NewSample;
 }
 
+void USplineToolkitInstantiator::ApplyModifiers(FSplineToolkitInstantiationRule& Rule, float CurrentDist)
+{
+	for (const auto& Mod : Rule.Modifiers)
+	{
+		bool bExists = true;
+		bExists &= Modifiers.InputFunctions.Contains(Mod.Input);
+		bExists &= Modifiers.Operators.Contains(Mod.Operation);
+		bExists &= ModifierOutputs.Contains(Mod.Output);
+		if (!bExists) return;
+		
+		FSplineToolkitModifierValue Input = Modifiers.InputFunctions[Mod.Input](SplineComponent, CurrentDist);
+		FSplineToolkitModifierValue Modded = Modifiers.Operators[Mod.Operation].Apply(Input, Mod.Parameter);
+		ModifierOutputs[Mod.Output](Rule, Modded);
+	}
+}
+
 void USplineToolkitInstantiator::OnRegister()
 {
 	Super::OnRegister();
@@ -138,26 +169,29 @@ void USplineToolkitInstantiator::RegenerateInternal()
 		// Loop over the spline at a set distance of precision. Applying the rules at each point
 		for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += fmax(Rule.StepPrecision, 1.0f))
 		{
-			// TODO: Apply modifiers
-			const auto ModdedRule = Rule;
-
-			// Check if enabled (Can be changed by modifier, so checking each step)
-			if (!ModdedRule.Enabled)
-				continue;
+			auto ModdedRule = Rule;
+			ApplyModifiers(ModdedRule, CurrentDist);
 
 			// Check if spacing is reached
 			const float offset = fmodf(CurrentDist, ModdedRule.Spacing);
 			if (offset >= ModdedRule.StepPrecision)
 				continue;
 
+			// Get the next RMF sample
 			FSplineToolkitRmfSample Sample = GetRMFSampleAtDistance(CurrentDist, LastSample);
 			
+			// Check if enabled (Can be changed by modifier, so checking each step)
+			if (!ModdedRule.Enabled)
+				continue;
+			
+			// Get rotation and direction data for instantiation
 			FVector Pos = Sample.Position;
 			FVector Rht = Sample.Bitangent;
 			FVector Fwd = Sample.Tangent;
 			FVector Up = Sample.Reference;
 			FRotator Rot = FRotationMatrix::MakeFromXZ(Fwd, Up).Rotator();
 
+			// Add an instance to the instancer
 			TObjectPtr<AActor> InstancerActor = {};
 			if (RuleIdx >= SpawnedInstancedMeshes.Num())
 			{
