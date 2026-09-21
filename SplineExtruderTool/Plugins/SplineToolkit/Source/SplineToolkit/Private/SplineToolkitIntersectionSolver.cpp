@@ -13,6 +13,13 @@ static FAutoConsoleVariableRef CVarShowIntersectionMidpoints(
 	TEXT(
 		"Shows the midpoints for spline overlaps"));
 
+int32 GSplineToolkitShowIntersectionCutoutRanges = 0;
+static FAutoConsoleVariableRef CVarShowIntersectionCutoutRanges(
+	TEXT("stk.IntersectionSolver.ShowCutoutRanges"),
+	GSplineToolkitShowIntersectionCutoutRanges,
+	TEXT(
+		"Shows the cutout regions for spline overlaps"));
+
 
 void USplineToolkitIntersectionSolver::OnRegister()
 {
@@ -47,45 +54,25 @@ void USplineToolkitIntersectionSolver::TickComponent(float DeltaTime, ELevelTick
 		for (const auto& Data : this->Collisions)
 			DrawDebugSphere(GetWorld(), Data.Midpoint, 50.f, 16, FColor::White);
 	}
+
+	if (GSplineToolkitShowIntersectionCutoutRanges)
+	{
+		for (const auto& Data : this->Collisions)
+		{
+			DrawDebugDirectionalArrow(GetWorld(), Data.Midpoint,
+			                          this->SplineComponent->GetWorldLocationAtDistanceAlongSpline(
+				                          Data.DistanceMin), 50.f, FColor::Cyan, false, -1, 0, 5.f);
+			DrawDebugDirectionalArrow(GetWorld(), Data.Midpoint,
+			                          this->SplineComponent->GetWorldLocationAtDistanceAlongSpline(
+				                          Data.DistanceMax), 50.f, FColor::Cyan, false, -1, 0, 5.f);
+		}
+	}
 }
 
 
-// TOptional<FVector> USplineToolkitIntersectionSolver::TestCollision(UProceduralMeshComponent* A,
-// 	UProceduralMeshComponent* B)
-// {
-// 	if (!A || !B)
-// 		return NullOpt;
-//
-// 	FBox BoxA = A->Bounds.GetBox();
-// 	FBox BoxB = B->Bounds.GetBox();
-// 	if (!BoxA.Intersect(BoxB))
-// 		return NullOpt;
-//
-// 	FComponentQueryParams Params;
-// 	Params.bTraceComplex = true;
-// 	Params.AddIgnoredComponent(A);
-//
-// 	// Sweep B along a short offset through its own current pose so the sweep actually registers a hit
-// 	// rather than starting already-overlapping (which sweeps report as a zero-distance/blocking start hit, not a surface point)
-// 	FVector Offset = (BoxA.GetCenter() - BoxB.GetCenter()).GetSafeNormal() * 1.0f;
-// 	FVector StartLoc = B->GetComponentLocation() - Offset * 50.f;
-// 	FVector EndLoc = B->GetComponentLocation();
-//
-// 	TArray<FHitResult> Hits;
-// 	bool bHit = GetWorld()->ComponentSweepMulti(Hits, B, StartLoc, EndLoc, B->GetComponentQuat(), Params);
-//
-// 	if (!bHit)
-// 		return NullOpt;
-//
-// 	for (const FHitResult& Hit : Hits)
-// 	{
-// 		if (Hit.GetActor() == A->GetOwner() || Hit.Component == A)
-// 			return Hit.ImpactPoint;
-// 	}
-//
-// 	return NullOpt;
-// }
-
+// The intersection code is made with Claude Sonnet 5
+// This because I could not be bothered and of course Unreal does not have
+// a built-in way to do this in the editor reliably
 
 static float ComputeApproxRadius(const FSplineToolkitExtrusionRule& Rule)
 {
@@ -97,9 +84,20 @@ static float ComputeApproxRadius(const FSplineToolkitExtrusionRule& Rule)
 	return Bounds.SphereRadius * Rule.Scale.GetAbsMax();;
 }
 
+
+static FVector SampleOffsetLocation(USplineComponent* Spline, int32 Index, const FVector& Offset)
+{
+	const FVector Base = Spline->GetWorldLocationAtSplinePoint(Index);
+	if (Offset.IsNearlyZero())
+		return Base;
+	const FQuat Frame = Spline->GetQuaternionAtSplinePoint(Index, ESplineCoordinateSpace::World);
+	return Base + Frame.RotateVector(Offset);
+}
+
+
 static FVector SampleOffsetLocation(USplineComponent* Spline, float Distance, const FVector& Offset)
 {
-	const FVector Base = Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
+	const FVector Base = Spline->GetWorldLocationAtDistanceAlongSpline(Distance);
 	if (Offset.IsNearlyZero())
 		return Base;
 	const FQuat Frame = Spline->GetQuaternionAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
@@ -107,21 +105,38 @@ static FVector SampleOffsetLocation(USplineComponent* Spline, float Distance, co
 }
 
 
-TOptional<USplineToolkitIntersectionSolver::FSplineIntersection> USplineToolkitIntersectionSolver::TestCollision(
+TOptional<FSplineToolkitSplineIntersection> USplineToolkitIntersectionSolver::TestCollision(
 	USplineComponent* SplineA,
 	const FSplineToolkitExtrusionRule& RuleA,
 	USplineComponent* SplineB,
-	const FSplineToolkitExtrusionRule& RuleB)
+	const FSplineToolkitExtrusionRule& RuleB,
+	const float Tolerance)
 {
 	if (!SplineA || !SplineB || !RuleA.bCheckIntersections || !RuleB.bCheckIntersections)
 		return NullOpt;
 
 	const float RadiusA = ComputeApproxRadius(RuleA);
 	const float RadiusB = ComputeApproxRadius(RuleB);
-	const float CombinedRadius = RadiusA + RadiusB;
+	const float CombinedRadius = (RadiusA + RadiusB) * (1.f - Tolerance);
 	if (CombinedRadius <= 0.f)
 		return NullOpt;
 	const float CombinedRadiusSq = FMath::Square(CombinedRadius);
+
+	// Simple prune of the entire spline
+	FBox BoundsA{ForceInit};
+	FBox BoundsB{ForceInit};
+
+	auto CalcBounds = [&](USplineComponent* Comp, FBox& Box, const FSplineToolkitExtrusionRule& Rule)
+	{
+		for (int32 I = 0; I < Comp->GetNumberOfSplinePoints(); ++I)
+			Box += SampleOffsetLocation(Comp, I, Rule.Offset);
+		Box = Box.ExpandBy(CombinedRadius);
+	};
+	CalcBounds(SplineA, BoundsA, RuleA);
+	CalcBounds(SplineB, BoundsB, RuleB);
+
+	if (!FBoxSphereBounds::BoxesIntersect(BoundsA, BoundsB))
+		return NullOpt;
 
 	const int32 NumPointsA = SplineA->GetNumberOfSplinePoints();
 	const int32 NumPointsB = SplineB->GetNumberOfSplinePoints();
@@ -131,89 +146,106 @@ TOptional<USplineToolkitIntersectionSolver::FSplineIntersection> USplineToolkitI
 	if (NumSegmentsA <= 0 || NumSegmentsB <= 0)
 		return NullOpt;
 
-	static constexpr int32 Samples = 64;
-	static constexpr float SamplesF = 64.f;
+	static constexpr int32 Samples = 128;
+	static constexpr float SamplesF = static_cast<float>(Samples);
 
 	// Collision check for one segment pair: subdivides both segments into polylines
-	// (density taken from each rule's RMF sample count) and tests every sub-segment
-	// pair with the engine's segment/segment closest-point solver.
-	auto CollideSegment = [&](int32 SegIndexA, int32 SegIndexB, TArray<TPair<float, FVector>>& OutHits)
-    {
-        const float DistStartA = SplineA->GetDistanceAlongSplineAtSplinePoint(SegIndexA);
-        const float DistEndA   = SplineA->GetDistanceAlongSplineAtSplinePoint((SegIndexA + 1) % NumPointsA);
-        const float DistStartB = SplineB->GetDistanceAlongSplineAtSplinePoint(SegIndexB);
-        const float DistEndB   = SplineB->GetDistanceAlongSplineAtSplinePoint((SegIndexB + 1) % NumPointsB);
+	// and tests every sub-segment pair with the engine's segment/segment closest-point solver.
+	auto CollideSegment = [&](int32 SegIndexA, int32 SegIndexB, TArray<TTuple<float, FVector, float>>& OutHits)
+	{
+		const float DistStartA = SplineA->GetDistanceAlongSplineAtSplinePoint(SegIndexA);
+		const float DistEndA = SplineA->GetDistanceAlongSplineAtSplinePoint((SegIndexA + 1) % NumPointsA);
+		const float DistStartB = SplineB->GetDistanceAlongSplineAtSplinePoint(SegIndexB);
+		const float DistEndB = SplineB->GetDistanceAlongSplineAtSplinePoint((SegIndexB + 1) % NumPointsB);
 
-        TArray<FVector, TInlineAllocator<33>> PolyA, PolyB;
-        TArray<float, TInlineAllocator<33>> DistA;
+		// Cheap segment-level reject before resampling either side at full density.
+		FBox SegBoundsA(ForceInit);
+		SegBoundsA += SampleOffsetLocation(SplineA, SegIndexA, RuleA.Offset);
+		SegBoundsA += SampleOffsetLocation(SplineA, (SegIndexA + 1) % NumPointsA, RuleA.Offset);
+		SegBoundsA = SegBoundsA.ExpandBy(CombinedRadius);
 
-        for (int32 i = 0; i <= Samples; ++i)
-        {
-            const float D = FMath::Lerp(DistStartA, DistEndA, i / SamplesF);
-            DistA.Add(D);
-            PolyA.Add(SampleOffsetLocation(SplineA, D, RuleA.Offset));
-        }
-        for (int32 j = 0; j <= Samples; ++j)
-        {
-            const float D = FMath::Lerp(DistStartB, DistEndB, j / SamplesF);
-            PolyB.Add(SampleOffsetLocation(SplineB, D, RuleB.Offset));
-        }
+		FBox SegBoundsB(ForceInit);
+		SegBoundsB += SampleOffsetLocation(SplineB, SegIndexB, RuleB.Offset);
+		SegBoundsB += SampleOffsetLocation(SplineB, (SegIndexB + 1) % NumPointsB, RuleB.Offset);
+		SegBoundsB = SegBoundsB.ExpandBy(CombinedRadius);
 
-        for (int32 i = 0; i < Samples; ++i)
-        {
-            for (int32 j = 0; j < Samples; ++j)
-            {
-                FVector ClosestOnA, ClosestOnB;
-                FMath::SegmentDistToSegmentSafe(
-                    PolyA[i], PolyA[i + 1],
-                    PolyB[j], PolyB[j + 1],
-                    ClosestOnA, ClosestOnB);
+		if (!SegBoundsA.Intersect(SegBoundsB))
+			return;
 
-                if (FVector::DistSquared(ClosestOnA, ClosestOnB) <= CombinedRadiusSq)
-                {
-                    const float MidDistA = FMath::Lerp(DistA[i], DistA[i + 1], 0.5f);
-                    const FVector MidPoint = FMath::Lerp(ClosestOnA, ClosestOnB, 0.5f);
-                    OutHits.Emplace(MidDistA, MidPoint);
-                }
-            }
-        }
-    };
+		TArray<FVector, TInlineAllocator<33>> PolyA, PolyB;
+		TArray<float, TInlineAllocator<33>> DistA;
 
-    TArray<TPair<float, FVector>> Hits;
-    for (int32 a = 0; a < NumSegmentsA; ++a)
-        for (int32 b = 0; b < NumSegmentsB; ++b)
-            CollideSegment(a, b, Hits);
+		for (int32 i = 0; i <= Samples; ++i)
+		{
+			const float D = FMath::Lerp(DistStartA, DistEndA, i / SamplesF);
+			DistA.Add(D);
+			PolyA.Add(SampleOffsetLocation(SplineA, D, RuleA.Offset));
+		}
+		for (int32 j = 0; j <= Samples; ++j)
+		{
+			const float D = FMath::Lerp(DistStartB, DistEndB, j / SamplesF);
+			PolyB.Add(SampleOffsetLocation(SplineB, D, RuleB.Offset));
+		}
 
-    if (Hits.IsEmpty())
-    	return NullOpt;
+		for (int32 i = 0; i < Samples; ++i)
+		{
+			for (int32 j = 0; j < Samples; ++j)
+			{
+				FVector ClosestOnA, ClosestOnB;
+				FMath::SegmentDistToSegmentSafe(
+					PolyA[i], PolyA[i + 1],
+					PolyB[j], PolyB[j + 1],
+					ClosestOnA, ClosestOnB);
 
-    float MinDist = TNumericLimits<float>::Max();
-    float MaxDist = TNumericLimits<float>::Lowest();
-    FVector MidpointAtMin = FVector::ZeroVector;
-    FVector MidpointAtMax = FVector::ZeroVector;
+				const float DistSq = FVector::DistSquared(ClosestOnA, ClosestOnB);
+				if (DistSq <= CombinedRadiusSq)
+				{
+					const float MidDistA = FMath::Lerp(DistA[i], DistA[i + 1], 0.5f);
+					const FVector MidPoint = FMath::Lerp(ClosestOnA, ClosestOnB, 0.5f);
+					OutHits.Emplace(MidDistA, MidPoint, DistSq);
+				}
+			}
+		}
+	};
 
-    for (const TPair<float, FVector>& Hit : Hits)
-    {
-        if (Hit.Key < MinDist)
-        {
-            MinDist = Hit.Key;
-            MidpointAtMin = Hit.Value;
-        }
-        if (Hit.Key > MaxDist)
-        {
-            MaxDist = Hit.Key;
-            MidpointAtMax = Hit.Value;
-        }
-    }
+	TArray<TTuple<float, FVector, float>> Hits;
+	for (int32 A = 0; A < NumSegmentsA; ++A)
+		for (int32 B = 0; B < NumSegmentsB; ++B)
+			CollideSegment(A, B, Hits);
 
-    FSplineIntersection Result;
-    Result.Range = FFloatRange::Inclusive(MinDist, MaxDist);
-    Result.Midpoint = FMath::Lerp(MidpointAtMin, MidpointAtMax, 0.5f);
-    return Result;
+	if (Hits.IsEmpty())
+		return NullOpt;
+
+	float MinDist = TNumericLimits<float>::Max();
+	float MaxDist = TNumericLimits<float>::Lowest();
+	float BestSeparationSq = TNumericLimits<float>::Max();
+	FVector Midpoint = FVector::ZeroVector;
+
+	for (const auto& Hit : Hits)
+	{
+		const float DistAlongA = Hit.Get<0>();
+		const float SepSq = Hit.Get<2>();
+
+		MinDist = FMath::Min(MinDist, DistAlongA);
+		MaxDist = FMath::Max(MaxDist, DistAlongA);
+
+		if (SepSq < BestSeparationSq)
+		{
+			BestSeparationSq = SepSq;
+			Midpoint = Hit.Get<1>();
+		}
+	}
+
+	FSplineToolkitSplineIntersection Result{
+		.DistanceMin = MinDist,
+		.DistanceMax = MaxDist,
+		.Midpoint = SplineA->FindLocationClosestToWorldLocation(Midpoint, ESplineCoordinateSpace::World)
+	};
+	return Result;
 }
 
 
-void USplineToolkitIntersectionSolver::SolveCollisionsFor(const FSplineToolkitExtrusionRule& Rule)
+void USplineToolkitIntersectionSolver::SolveCollisionsFor(const USplineToolkitIntersectionSolver* Caller, const FSplineToolkitExtrusionRule& Rule)
 {
 	// Get the extruder
 	auto* OwnerA = GetOwner();
@@ -241,18 +273,22 @@ void USplineToolkitIntersectionSolver::SolveCollisionsFor(const FSplineToolkitEx
 			if (!RuleB.bCheckIntersections)
 				continue;
 
-			auto Result = TestCollision(SplineA, Rule, SplineB, RuleB);
+			auto Result = TestCollision(SplineA, Rule, SplineB, RuleB, this->Tolerance);
 
 			if (!Result)
 				continue;
 
 			this->Collisions.Add(Result.GetValue());
+
+			// Also call the collision handler for the other one to include this collision
+			if (auto* Solver = OwnerB->FindComponentByClass<USplineToolkitIntersectionSolver>(); Solver && Solver != Caller)
+				Solver->SolveCollisions(this);
 		}
 	}
 }
 
 
-void USplineToolkitIntersectionSolver::SolveCollisions()
+void USplineToolkitIntersectionSolver::SolveCollisions(const USplineToolkitIntersectionSolver* Caller)
 {
 	if (!IsValid(this->Ruleset))
 		return;
@@ -261,6 +297,6 @@ void USplineToolkitIntersectionSolver::SolveCollisions()
 	for (const auto& Rule : this->Ruleset->ExtrusionRules)
 	{
 		if (Rule.bCheckIntersections)
-			SolveCollisionsFor(Rule);
+			SolveCollisionsFor(Caller, Rule);
 	}
 }
