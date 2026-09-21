@@ -35,7 +35,7 @@ void USplineToolkitMeshExtruder::OnRegister()
 		this->SplineComponent = Owner->GetComponentByClass<USplineComponent>();
 		this->SplineComponent->GetOnSplineChanged().AddLambda([this]()
 		{
-			if (bUpdateOnSplineChange)
+			if (this->bUpdateOnSplineChange)
 				Regenerate();
 		});
 	}
@@ -49,7 +49,8 @@ void USplineToolkitMeshExtruder::OnRegister()
 		});
 		this->Ruleset->OnReapplyMaterials.AddLambda([this]
 		{
-			ReapplyMaterials();
+			if (this->bUpdateOnRulesetChange)
+				ReapplyMaterials();
 		});
 	}
 
@@ -649,7 +650,7 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 		for (int32 Vertex = 0; Vertex < Data.OriginSlice.Num(); ++Vertex, ++VertexPtr)
 		{
 			DrawData.Positions[VertexPtr] = Transform.TransformPosition(
-				(DrawData.Positions[VertexPtr] * Rule.Scale) + Rule.Offset);
+				(DrawData.Positions[VertexPtr] * FVector{Rule.Scale.X, 1.f, Rule.Scale.Y}) + Rule.Offset);
 			if (I == -1)
 				DrawData.Normals[VertexPtr] = -Sample.Tangent;
 			else if (I == Rule.NumRmfSamples)
@@ -658,7 +659,7 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 				DrawData.Normals[VertexPtr] = Transform.TransformVector(DrawData.Normals[VertexPtr]);
 			DrawData.Tangents[VertexPtr].TangentX = Transform.TransformVector(DrawData.Tangents[VertexPtr].TangentX);
 			// Set UVs to distance / totalDistance
-			DrawData.Uv0[VertexPtr].Y = Sample.Distance / TotalSplineDistance;
+			DrawData.Uv0[VertexPtr].Y = (Sample.Distance / TotalSplineDistance) * Rule.UvScale;
 		}
 	}
 
@@ -729,7 +730,8 @@ void USplineToolkitMeshExtruder::PostEditChangeProperty(FPropertyChangedEvent& P
 		});
 		this->Ruleset->OnReapplyMaterials.AddLambda([this]
 		{
-			ReapplyMaterials();
+			if (this->bUpdateOnRulesetChange)
+				ReapplyMaterials();
 		});
 	}
 }

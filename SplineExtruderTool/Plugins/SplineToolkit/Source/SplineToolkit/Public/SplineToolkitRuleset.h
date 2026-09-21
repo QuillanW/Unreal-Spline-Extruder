@@ -139,7 +139,10 @@ public:
 	FVector Offset;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FVector Scale = FVector::OneVector;
+	FVector2D Scale = FVector2D::One();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float UvScale = 1.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 NumRmfSamples = 128;
