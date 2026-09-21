@@ -70,6 +70,8 @@ public:
 
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 
+	AActor* GetAssociatedActorOfRule(const FSplineToolkitExtrusionRule& Rule) const;
+
 	UFUNCTION(CallInEditor, Category = "Spline Toolkit")
 	void Regenerate();
 

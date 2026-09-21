@@ -117,6 +117,9 @@ struct SPLINETOOLKIT_API FSplineToolkitExtrusionRule
 public:
 	GENERATED_BODY()
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bCheckIntersections = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UStaticMesh* Mesh = nullptr;
 
@@ -128,6 +131,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 NumRmfSamples = 128;
+
+	bool operator==(const FSplineToolkitExtrusionRule&) const = default;
 };
 
 /// Stretching rule for its matching component

@@ -107,8 +107,8 @@ void USplineToolkitMeshExtruder::TickComponent(float DeltaTime, enum ELevelTick 
 				DrawDebugString(GetWorld(), Transform.TransformPosition(Pos), FString::FromInt(Index++));
 		}
 	}
-	
-	if (bRegenerate)
+
+	if (this->bRegenerate)
 		RegenerateInternal();
 }
 
@@ -120,19 +120,31 @@ void USplineToolkitMeshExtruder::OnComponentDestroyed(bool bDestroyingHierarchy)
 	Clear();
 }
 
+
+AActor* USplineToolkitMeshExtruder::GetAssociatedActorOfRule(const FSplineToolkitExtrusionRule& Rule) const
+{
+	const auto Idx = this->Ruleset->ExtrusionRules.Find(Rule);
+	return Idx == INDEX_NONE ? nullptr : this->OutMeshes[Idx].MeshActor;
+}
+
+
 void USplineToolkitMeshExtruder::Regenerate()
 {
-	bRegenerate = true;
+	this->bRegenerate = true;
 }
 
 
 void USplineToolkitMeshExtruder::RegenerateInternal()
 {
-	bRegenerate = false;
-	
+	this->bRegenerate = false;
+
 	ClearConservative();
 
 	if (!this->Ruleset->IsValidLowLevelFast())
+		return;
+
+	// This is a degenerate spline
+	if (SplineComponent->GetNumberOfSplinePoints() < 2)
 		return;
 
 	uint32 Ptr = 0;
@@ -689,8 +701,8 @@ void USplineToolkitMeshExtruder::PostEditChangeProperty(FPropertyChangedEvent& P
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	if (Ruleset->IsValidLowLevel())
-		Ruleset->OnChanged.AddLambda([this]
+	if (this->Ruleset->IsValidLowLevel())
+		this->Ruleset->OnChanged.AddLambda([this]
 		{
 			Regenerate();
 		});
