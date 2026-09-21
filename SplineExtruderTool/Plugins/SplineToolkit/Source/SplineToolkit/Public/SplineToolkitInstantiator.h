@@ -28,7 +28,9 @@ protected:
 	virtual void OnRegister() override;
 	
 	FSplineToolkitRmfSample GetRMFSampleAtDistance(float d, FSplineToolkitRmfSample& prevSample) const;
-	
+	FSplineToolkitModifierValue ModdedModifier(const FSplineToolkitModifier& Mod, float CurrentDist);
+	FSplineToolkitModifierValue ApplyModifier(const FSplineToolkitModifier& Mod, float CurrentDist);
+
 	void ApplyModifiers(FSplineToolkitInstantiationRule& Rule, float CurrentDist);
 	
 	void RegenerateInternal();

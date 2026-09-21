@@ -39,12 +39,19 @@ FSplineToolkitModifierDefaults::FSplineToolkitModifierDefaults()
 		Result.FloatParameter = Dist;
 		return Result;
 	});
-	InputFunctions.Add(EModifierInputTypes::Crossing, [](USplineComponent*, float Dist)
+	InputFunctions.Add(EModifierInputTypes::Crossing, [](USplineComponent*, float)
 	{
 		FSplineToolkitModifierValue Result;
 		Result.DataType = EModifierDataType::Float;
 		// TODO: Pls implement Patrick :D
 		Result.bBoolParameter = false;
+		return Result;
+	});
+	InputFunctions.Add(EModifierInputTypes::Height, [](USplineComponent* Comp, float Dist)
+	{
+		FSplineToolkitModifierValue Result;
+		Result.DataType = EModifierDataType::Float;
+		Result.FloatParameter = Comp->GetLocationAtDistanceAlongSpline(Dist, ESplineCoordinateSpace::World).Z;
 		return Result;
 	});
 #pragma endregion 
@@ -102,7 +109,33 @@ FSplineToolkitModifierDefaults::FSplineToolkitModifierDefaults()
 		Result.VectorParameter = Input.VectorParameter / Param.VectorParameter;
 		return Result;
 	}
-});
+	});
+	
+	Operators.Add(EModifierOperatorTypes::Add, {
+	EModifierDataType::Multi,
+	EModifierDataType::Multi,
+	[](const FSplineToolkitModifierValue& Input, const FSplineToolkitModifierValue& Param)
+	{
+		FSplineToolkitModifierValue Result = {};
+		Result.DataType = Input.DataType;
+		Result.FloatParameter = Input.FloatParameter + Param.FloatParameter;
+		Result.VectorParameter = Input.VectorParameter + Param.VectorParameter;
+		return Result;
+	}
+	});
+	
+	Operators.Add(EModifierOperatorTypes::Subtract, {
+	EModifierDataType::Multi,
+	EModifierDataType::Multi,
+	[](const FSplineToolkitModifierValue& Input, const FSplineToolkitModifierValue& Param)
+	{
+		FSplineToolkitModifierValue Result = {};
+		Result.DataType = Input.DataType;
+		Result.FloatParameter = Input.FloatParameter - Param.FloatParameter;
+		Result.VectorParameter = Input.VectorParameter - Param.VectorParameter;
+		return Result;
+	}
+	});
 
 #pragma endregion
 }

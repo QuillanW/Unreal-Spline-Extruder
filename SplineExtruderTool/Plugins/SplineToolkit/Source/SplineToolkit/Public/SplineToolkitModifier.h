@@ -26,7 +26,9 @@ enum class EModifierInputTypes : uint8 {
 	Roll UMETA(DisplayName = "Roll (-180>180)"),
 	Pitch UMETA(DisplayName = "Pitch (-180>180)"),
 	Crossing UMETA(DisplayName = "Crossing (Bool)"),
-	Split UMETA(DisplayName = "Split (Bool)")
+	Split UMETA(DisplayName = "Split (Bool)"),
+	Modifier UMETA(DisplayName = "Modifier", ToolTip = "Should only be used for the parameter source"),
+	Parameter UMETA(DisplayName = "Parameter", ToolTip = "Should only be used for the parameter source")
 };
 
 // The supported operator types
@@ -93,6 +95,10 @@ public:
 	EModifierOperatorTypes Operation = EModifierOperatorTypes::GreaterThan;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FSplineToolkitModifierValue Parameter = {};
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 SourceModifierIdx = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EModifierInputTypes ParameterSource = {};
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EModifierOutputTypes Output = EModifierOutputTypes::Enabled;
 };

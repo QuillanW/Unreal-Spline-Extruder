@@ -10,26 +10,30 @@
 USplineToolkitInstantiator::USplineToolkitInstantiator()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-	
-	ModifierOutputs.Add(EModifierOutputTypes::Enabled, [this](FSplineToolkitInstantiationRule& Rule, const FSplineToolkitModifierValue& Val)
-	{
-		Rule.Enabled = Val.bBoolParameter;
-	});
-	
-	ModifierOutputs.Add(EModifierOutputTypes::Offset, [this](FSplineToolkitInstantiationRule& Rule, const FSplineToolkitModifierValue& Val)
-	{
-		Rule.Offset = Val.VectorParameter;
-	});
-	
-	ModifierOutputs.Add(EModifierOutputTypes::Scale, [this](FSplineToolkitInstantiationRule& Rule, const FSplineToolkitModifierValue& Val)
-	{
-		Rule.Scale = Val.VectorParameter;
-	});
-	
-	ModifierOutputs.Add(EModifierOutputTypes::Spacing, [this](FSplineToolkitInstantiationRule& Rule, const FSplineToolkitModifierValue& Val)
-	{
-		Rule.Spacing = Val.FloatParameter;
-	});
+
+	ModifierOutputs.Add(EModifierOutputTypes::Enabled,
+	                    [this](FSplineToolkitInstantiationRule& Rule, const FSplineToolkitModifierValue& Val)
+	                    {
+		                    Rule.Enabled = Val.bBoolParameter;
+	                    });
+
+	ModifierOutputs.Add(EModifierOutputTypes::Offset,
+	                    [this](FSplineToolkitInstantiationRule& Rule, const FSplineToolkitModifierValue& Val)
+	                    {
+		                    Rule.Offset = Val.VectorParameter;
+	                    });
+
+	ModifierOutputs.Add(EModifierOutputTypes::Scale,
+	                    [this](FSplineToolkitInstantiationRule& Rule, const FSplineToolkitModifierValue& Val)
+	                    {
+		                    Rule.Scale = Val.VectorParameter;
+	                    });
+
+	ModifierOutputs.Add(EModifierOutputTypes::Spacing,
+	                    [this](FSplineToolkitInstantiationRule& Rule, const FSplineToolkitModifierValue& Val)
+	                    {
+		                    Rule.Spacing = Val.FloatParameter;
+	                    });
 }
 
 
@@ -99,18 +103,49 @@ FSplineToolkitRmfSample USplineToolkitInstantiator::GetRMFSampleAtDistance(
 	return NewSample;
 }
 
+FSplineToolkitModifierValue USplineToolkitInstantiator::ModdedModifier(const FSplineToolkitModifier& Mod,
+                                                                       float CurrentDist)
+{
+	Modifiers.InputFunctions.Add(EModifierInputTypes::Parameter,
+	                             [Mod](USplineComponent*, float) { return Mod.Parameter; });
+
+	bool bExists = true;
+	bExists &= Modifiers.InputFunctions.Contains(Mod.Input);
+	bExists &= Modifiers.InputFunctions.Contains(Mod.ParameterSource);
+	bExists &= Modifiers.Operators.Contains(Mod.Operation);
+	bExists &= ModifierOutputs.Contains(Mod.Output);
+	if (!bExists) return {};
+
+	FSplineToolkitModifierValue Input = Modifiers.InputFunctions[Mod.Input](SplineComponent, CurrentDist);
+	FSplineToolkitModifierValue Parameter = Modifiers.InputFunctions[Mod.ParameterSource](SplineComponent, CurrentDist);
+	return Modifiers.Operators[Mod.Operation].Apply(Input, Parameter);
+};
+
 void USplineToolkitInstantiator::ApplyModifiers(FSplineToolkitInstantiationRule& Rule, float CurrentDist)
 {
 	for (const auto& Mod : Rule.Modifiers)
 	{
+		Modifiers.InputFunctions.Add(EModifierInputTypes::Parameter,
+		                             [Mod](USplineComponent*, float) { return Mod.Parameter; });
+		if (Mod.SourceModifierIdx < Rule.Modifiers.Num())
+		{
+			Modifiers.InputFunctions.Add(EModifierInputTypes::Modifier, [Mod, this](USplineComponent*, float D)
+			{
+				return ModdedModifier(Mod, D);
+			});
+		}
+
 		bool bExists = true;
 		bExists &= Modifiers.InputFunctions.Contains(Mod.Input);
+		bExists &= Modifiers.InputFunctions.Contains(Mod.ParameterSource);
 		bExists &= Modifiers.Operators.Contains(Mod.Operation);
 		bExists &= ModifierOutputs.Contains(Mod.Output);
 		if (!bExists) return;
-		
+
 		FSplineToolkitModifierValue Input = Modifiers.InputFunctions[Mod.Input](SplineComponent, CurrentDist);
-		FSplineToolkitModifierValue Modded = Modifiers.Operators[Mod.Operation].Apply(Input, Mod.Parameter);
+		FSplineToolkitModifierValue Parameter = Modifiers.InputFunctions[Mod.ParameterSource](
+			SplineComponent, CurrentDist);
+		FSplineToolkitModifierValue Modded = Modifiers.Operators[Mod.Operation].Apply(Input, Parameter);
 		ModifierOutputs[Mod.Output](Rule, Modded);
 	}
 }
@@ -190,11 +225,11 @@ void USplineToolkitInstantiator::RegenerateInternal()
 
 			// Get the next RMF sample
 			FSplineToolkitRmfSample Sample = GetRMFSampleAtDistance(CurrentDist, LastSample);
-			
+
 			// Check if enabled (Can be changed by modifier, so checking each step)
 			if (!ModdedRule.Enabled)
 				continue;
-			
+
 			// Get rotation and direction data for instantiation
 			FVector Pos = Sample.Position;
 			FVector Rht = Sample.Bitangent;
