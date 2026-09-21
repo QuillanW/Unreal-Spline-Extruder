@@ -7,7 +7,7 @@
 #include "SplineToolkitMeshExtruder.h"
 
 int32 GSplineToolkitShowIntersectionMidpoints = 0;
-static FAutoConsoleVariableRef CVarShowExtruderIndices(
+static FAutoConsoleVariableRef CVarShowIntersectionMidpoints(
 	TEXT("stk.IntersectionSolver.ShowMidpoints"),
 	GSplineToolkitShowIntersectionMidpoints,
 	TEXT(
