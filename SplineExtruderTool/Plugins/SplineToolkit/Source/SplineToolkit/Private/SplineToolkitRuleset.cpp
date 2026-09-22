@@ -2,10 +2,9 @@
 
 #include "SplineToolkitRuleset.h"
 
-float GetCurvatureAtDistanceAlongSpline(USplineComponent* Spline, float Distance)
+float GetCurvatureAtDistanceAlongSpline(USplineComponent* Spline, float Distance, float MaxCurvature)
 {
 	float InputKey = Spline->GetInputKeyValueAtDistanceAlongSpline(Distance);
-
 	const FInterpCurveVector& PositionCurve = Spline->GetSplinePointsPosition();
 
 	FVector FirstDeriv  = PositionCurve.EvalDerivative(InputKey, FVector::ZeroVector);
@@ -16,11 +15,21 @@ float GetCurvatureAtDistanceAlongSpline(USplineComponent* Spline, float Distance
 	{
 		return 0.0f;
 	}
-	
-	float CrossMagnitude = FVector::CrossProduct(FirstDeriv, SecondDeriv).Size();
-	float Speed = FMath::Sqrt(SpeedSq);
 
-	return CrossMagnitude / (Speed * Speed * Speed);
+	float Speed = FMath::Sqrt(SpeedSq);
+	FVector Tangent = FirstDeriv / Speed;
+
+	FVector CrossVec = FVector::CrossProduct(FirstDeriv, SecondDeriv);
+	float CurvatureMagnitude = CrossVec.Size() / (Speed * Speed * Speed);
+
+	FVector UpVector = Spline->GetUpVectorAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::Local);
+	FVector RightVector = FVector::CrossProduct(Tangent, UpVector).GetSafeNormal();
+
+	float Side = FVector::DotProduct(SecondDeriv, RightVector);
+	float Sign = (Side >= 0.0f) ? 1.0f : -1.0f;
+
+	float Normalized = FMath::Tanh(CurvatureMagnitude / FMath::Max(MaxCurvature, SMALL_NUMBER));
+	return Sign * Normalized;
 }
 
 #if WITH_EDITOR

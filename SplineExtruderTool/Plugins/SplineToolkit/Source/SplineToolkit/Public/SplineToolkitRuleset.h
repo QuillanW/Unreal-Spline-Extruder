@@ -11,7 +11,8 @@
 //         HELPER FUNCS
 // ===============================
 
-float GetCurvatureAtDistanceAlongSpline(USplineComponent* Spline, float Distance);
+// MaxCurvature controls sensitivity, it's the curvature (in 1/cm) that maps to ~1.0.
+float GetCurvatureAtDistanceAlongSpline(USplineComponent* Spline, float Distance, float MaxCurvature = 1.0f);
 
 // ===============================
 //         GENERIC TYPES
@@ -114,6 +115,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 NumRmfSamples = 128;
+	
+	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
+	TArray<TObjectPtr<USplineRulesetModifierBase>> Modifiers;
 };
 
 /// Stretching rule for its matching component
@@ -131,6 +135,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FString EndAnchorType;
+	
+	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
+	TArray<TObjectPtr<USplineRulesetModifierBase>> Modifiers;
 };
 
 /// Placement rule for its matching component

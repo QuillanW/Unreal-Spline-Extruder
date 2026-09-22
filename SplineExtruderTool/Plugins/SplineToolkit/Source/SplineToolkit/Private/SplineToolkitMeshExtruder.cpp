@@ -1,6 +1,7 @@
 // Copyright 2026 Patrick Vreeburg + Quillan Wielhouwer
 #include "SplineToolkitMeshExtruder.h"
 
+#include "SplineToolkitModifier.h"
 #include "Components/SplineComponent.h"
 #include "Misc/Zip.h"
 
@@ -623,7 +624,16 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 	for (int32 I = -1; I < Rule.NumRmfSamples + 1; ++I)
 	{
 		const auto& Sample = Data.RmfSamples[FMath::Clamp(I, 0, Rule.NumRmfSamples - 1)];
+		
+		FSplineToolkitStepContext Context {SplineComponent, Sample.Distance};
 
+		FSplineToolkitExtrusionRule ModdedRule = Rule;
+		for (USplineRulesetModifierBase* Modifier : Rule.Modifiers)
+		{
+			if (!Modifier) continue;
+			ModdedRule = Modifier->ModifyExtrusionStep(Context, ModdedRule);
+		}
+		
 		// Instantiate a slice per sample
 		DrawData.Insert(Data.OriginSlice, VertexPtr);
 
