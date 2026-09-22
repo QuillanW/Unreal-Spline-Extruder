@@ -106,11 +106,16 @@ private:
 	void RecalculateRmfSamples(int32 NumRmfSamples, FSplineToolkitExtruderMeshData& Data) const;
 
 	void ExtractOriginSlice(UStaticMesh* InputMesh, FSplineToolkitExtruderMeshData& Data) const;
+	
+	USplineToolkitRulesetModifierBase* GetOrCreateModifierInstance(TSubclassOf<USplineToolkitRulesetModifierBase> Class);
 
 	static TArray<int32> ComputeEndCap(const FSplineToolkitExtruderMeshData& Data, int16 IndexOffset, bool InvertOrdering);
 	static TArray<int32> ReorderToLoop(const FRawStaticIndexBuffer& GeometryIndexBuffer, const TArray<FVector>& Positions, const TMap<int32, TArray<int32>>&
 	                                   UsedIndices);
 
+	UPROPERTY(Transient)
+	TMap<TSubclassOf<USplineToolkitRulesetModifierBase>, USplineToolkitRulesetModifierBase*> ModifierInstanceCache;
+	
 	void ComputeMesh(const FSplineToolkitExtrusionRule& Rule, UProceduralMeshComponent* MeshComponent, const FSplineToolkitExtruderMeshData& Data) const;
 
 #if WITH_EDITOR

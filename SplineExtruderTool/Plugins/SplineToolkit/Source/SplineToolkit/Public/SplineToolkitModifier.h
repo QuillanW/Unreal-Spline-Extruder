@@ -35,7 +35,7 @@ struct SPLINETOOLKIT_API FSplineToolkitStepContext
 };
 
 UCLASS(Abstract, Blueprintable, EditInlineNew)
-class SPLINETOOLKIT_API USplineRulesetModifierBase : public UObject
+class SPLINETOOLKIT_API USplineToolkitRulesetModifierBase : public UObject
 {
 	GENERATED_BODY()
 

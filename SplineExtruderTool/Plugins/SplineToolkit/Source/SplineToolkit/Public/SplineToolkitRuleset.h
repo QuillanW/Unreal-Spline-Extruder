@@ -18,7 +18,9 @@ float GetCurvatureAtDistanceAlongSpline(USplineComponent* Spline, float Distance
 //         GENERIC TYPES
 // ===============================
 
-class USplineRulesetModifierBase;
+class USplineToolkitRulesetModifierBase;
+
+
 // RMF Sample type
 USTRUCT()
 struct FSplineToolkitRmfSample
@@ -88,7 +90,7 @@ public:
 	FVector Scale = FVector::OneVector;
 	
 	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
-	TArray<TObjectPtr<USplineRulesetModifierBase>> Modifiers;
+	TArray<TObjectPtr<USplineToolkitRulesetModifierBase>> Modifiers;
 };
 
 /// Extrusion rule for its matching component
@@ -117,7 +119,7 @@ public:
 	int32 NumRmfSamples = 128;
 	
 	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
-	TArray<TObjectPtr<USplineRulesetModifierBase>> Modifiers;
+	TArray<TObjectPtr<USplineToolkitRulesetModifierBase>> Modifiers;
 };
 
 /// Stretching rule for its matching component
@@ -137,7 +139,7 @@ public:
 	FString EndAnchorType;
 	
 	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
-	TArray<TObjectPtr<USplineRulesetModifierBase>> Modifiers;
+	TArray<TObjectPtr<USplineToolkitRulesetModifierBase>> Modifiers;
 };
 
 /// Placement rule for its matching component

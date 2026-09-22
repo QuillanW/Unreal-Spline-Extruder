@@ -120,13 +120,13 @@ void USplineToolkitInstantiator::OnRegister()
 	}
 }
 
-USplineRulesetModifierBase* USplineToolkitInstantiator::GetOrCreateModifierInstance(TSubclassOf<USplineRulesetModifierBase> Class)
+USplineToolkitRulesetModifierBase* USplineToolkitInstantiator::GetOrCreateModifierInstance(TSubclassOf<USplineToolkitRulesetModifierBase> Class)
 {
-	if (USplineRulesetModifierBase** Found = ModifierInstanceCache.Find(Class))
+	if (USplineToolkitRulesetModifierBase** Found = ModifierInstanceCache.Find(Class))
 	{
 		return *Found;
 	}
-	USplineRulesetModifierBase* NewInstance = NewObject<USplineRulesetModifierBase>(GetTransientPackage(), Class);
+	USplineToolkitRulesetModifierBase* NewInstance = NewObject<USplineToolkitRulesetModifierBase>(GetTransientPackage(), Class);
 	ModifierInstanceCache.Add(Class, NewInstance);
 	return NewInstance;
 }
@@ -164,7 +164,7 @@ void USplineToolkitInstantiator::RegenerateInternal()
 			FSplineToolkitStepContext Context {SplineComponent, CurrentDist};
 
 			FSplineToolkitInstantiationRule ModdedRule = Rule;
-			for (USplineRulesetModifierBase* Modifier : Rule.Modifiers)
+			for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
 			{
 				if (!Modifier) continue;
 				ModdedRule = Modifier->ModifyInstantiationStep(Context, ModdedRule);
