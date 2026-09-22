@@ -4,10 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "ProceduralMeshComponent.h"
+#include "SplineToolkitRmf.h"
+#include "SplineToolkitIntersectionSolver.h"
 #include "SplineToolkitRuleset.h"
 #include "Components/SplineComponent.h"
 #include "Runtime/Engine/Classes/Components/StaticMeshComponent.h"
 #include "SplineToolkitMeshExtruder.generated.h"
+
 
 USTRUCT()
 struct FSplineToolkitExtruderDrawData
@@ -22,16 +25,36 @@ struct FSplineToolkitExtruderDrawData
 	TArray<FVector2D> Uv0;
 	UPROPERTY()
 	TArray<FProcMeshTangent> Tangents;
+	UPROPERTY()
+	TArray<int32> Indices;
 
 	FSplineToolkitExtruderDrawData() = default;
-	void Reserve(uint32 NumVertices);
-	void Init(uint32 NumVertices);
+	void ReserveVertices(uint32 NumVertices);
+	void InitVertices(uint32 NumVertices);
 
-	void Insert(const FSplineToolkitExtruderDrawData& Other, uint32 Where);
+	void ReserveIndices(uint32 NumIndices);
+	void InitIndices(uint32 NumIndices);
 
-	int32 Num() const;
+	void InsertVertices(const FSplineToolkitExtruderDrawData& Other, uint32 Where);
+	void AppendIndices(TArray<int32>&& List);
+	void AddIndex(int32 Index);
+
+	void ShrinkFit();
+
+	int32 VertexTop() const;
+	int32 IndexTop() const;
+
+	int32 VertexNum() const;
 	bool IsEmpty() const;
+
+private:
+
+	UPROPERTY()
+	int32 VertexTopIdx = 0;
+	UPROPERTY()
+	int32 IndexTopIdx = 0;
 };
+
 
 USTRUCT()
 struct FSplineToolkitExtruderMeshData
@@ -50,6 +73,7 @@ struct FSplineToolkitExtruderMeshData
 	UPROPERTY()
 	TObjectPtr<UProceduralMeshComponent> ProceduralMeshComponent;
 };
+
 
 /**
  * This is an alternative to USplineMeshComponent that allows the use of SplineToolkit's modifiers and intersection rules
@@ -95,10 +119,13 @@ public:
 	USplineComponent* SplineComponent = nullptr;
 
 private:
-	
+
+	// NOTE: TEMP
+	mutable TArray<FSplineToolkitRmfSample> DrawnSamples;
+
 	void RegenerateInternal();
 	void ReapplyMaterials();
-	
+
 	bool bRegenerate = false;
 
 	// The output meshes
@@ -109,11 +136,33 @@ private:
 
 	void ExtractOriginSlice(UStaticMesh* InputMesh, FSplineToolkitExtruderMeshData& Data) const;
 
-	static TArray<int32> ComputeEndCap(const FSplineToolkitExtruderMeshData& Data, int16 IndexOffset, bool InvertOrdering);
-	static TArray<int32> ReorderToLoop(const FRawStaticIndexBuffer& GeometryIndexBuffer, const TArray<FVector>& Positions, const TMap<int32, TArray<int32>>&
+	static TArray<int32> ComputeEndCap(const FSplineToolkitExtruderMeshData& Data, int32 IndexOffset,
+	                                   bool InvertOrdering);
+	static TArray<int32> ReorderToLoop(const FRawStaticIndexBuffer& GeometryIndexBuffer,
+	                                   const TArray<FVector>& Positions, const TMap<int32, TArray<int32>>&
 	                                   UsedIndices);
 
-	void ComputeMesh(const FSplineToolkitExtrusionRule& Rule, UProceduralMeshComponent* MeshComponent, const FSplineToolkitExtruderMeshData& Data) const;
+	void AddStartCap(USplineToolkitIntersectionSolver* Solver, FSplineToolkitExtruderDrawData& DrawData,
+	                 const FSplineToolkitExtrusionRule& Rule, const FSplineToolkitExtruderMeshData& Data) const;
+	void AddEndCap(USplineToolkitIntersectionSolver* Solver, FSplineToolkitExtruderDrawData& DrawData,
+	               const FSplineToolkitExtrusionRule& Rule, const FSplineToolkitExtruderMeshData& Data) const;
+
+	/// Appends a new instance of the slice to the draw data
+	/// Returns a couple of things of data:
+	///		The RMF sample to transform the vertices
+	///		The index in the RMF array
+	///		The index into the vertex list
+	///	The return value indices that no new sample was added (end of spline)
+	bool AddNextSampleToMesh(USplineToolkitIntersectionSolver* Solver,
+	                         FSplineToolkitExtruderDrawData& DrawData, const FSplineToolkitExtrusionRule& Rule,
+	                         const FSplineToolkitExtruderMeshData& Data, FSplineToolkitRmfSample& OutRmfSample,
+	                         int32& OutVertexPtr, bool& OutDontConnect, bool bCalledFromSelf = false) const;
+
+	void ConnectToPreviousSample(FSplineToolkitExtruderDrawData& DrawData,
+	                             int32 StartIndex, const FSplineToolkitExtruderMeshData& Data) const;
+
+	void ComputeMesh(const FSplineToolkitExtrusionRule& Rule, UProceduralMeshComponent* MeshComponent,
+	                 const FSplineToolkitExtruderMeshData& Data) const;
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

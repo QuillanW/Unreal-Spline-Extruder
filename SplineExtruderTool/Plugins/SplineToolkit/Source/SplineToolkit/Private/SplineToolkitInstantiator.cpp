@@ -2,6 +2,8 @@
 
 #include "SplineToolkitInstantiator.h"
 
+#include "SplineToolkitIntersectionSolver.h"
+#include "SplineToolkitRmf.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SplineComponent.h"
 #include "Misc/Zip.h"
@@ -30,58 +32,6 @@ void USplineToolkitInstantiator::BeginPlay()
 void USplineToolkitInstantiator::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
-}
-
-
-FSplineToolkitRmfSample USplineToolkitInstantiator::GetRMFSampleAtDistance(
-	float Distance, FSplineToolkitRmfSample& PrevSample) const
-{
-	if (Distance <= 0.0f)
-	{
-		auto NewSample = PrevSample;
-		const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
-		NewSample.Reference = NewSample.Reference.RotateAngleAxis(Roll, NewSample.Tangent);
-		NewSample.Bitangent = NewSample.Tangent.Cross(NewSample.Reference);
-		return NewSample;
-	}
-
-	const FVector Position = this->SplineComponent->GetLocationAtDistanceAlongSpline(
-		Distance, ESplineCoordinateSpace::World);
-	const FVector Tangent = this->SplineComponent->GetTangentAtDistanceAlongSpline(
-		Distance, ESplineCoordinateSpace::World).GetSafeNormal();
-
-	// Perform the first reflection R_1
-	// Algorithm from https://dl.acm.org/doi/epdf/10.1145/1330511.1330513
-	// Page 7, Table I
-	const FVector Reflection1 = Position - PrevSample.Position;
-	const float Reflection1SqrLength = Reflection1.SquaredLength();
-	const FVector PrevReferenceLeftHanded = PrevSample.Reference - (2.0f / Reflection1SqrLength) * Reflection1.
-		Dot(PrevSample.Reference) * Reflection1;
-	const FVector PrevTangentLeftHanded = PrevSample.Tangent - (2.0f / Reflection1SqrLength) * Reflection1.
-		Dot(PrevSample.Tangent) * Reflection1;
-
-	const FVector Reflection2 = Tangent - PrevTangentLeftHanded;
-	const float Reflection2SqrLength = Reflection2.SquaredLength();
-	const FVector NewReference = PrevReferenceLeftHanded - (2.0f / Reflection2SqrLength) * Reflection2.Dot(
-		PrevReferenceLeftHanded) * Reflection2;
-
-	const FVector NewBitangent = Tangent.Cross(NewReference);
-
-	auto NewSample = FSplineToolkitRmfSample{
-		.Position = Position,
-		.Distance = Distance,
-		.Tangent = Tangent,
-		.Bitangent = NewBitangent,
-		.Reference = NewReference
-	};
-
-	PrevSample = NewSample;
-
-	const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
-
-	NewSample.Reference = NewSample.Reference.RotateAngleAxis(Roll, NewSample.Tangent);
-	NewSample.Bitangent = NewSample.Tangent.Cross(NewSample.Reference);
-	return NewSample;
 }
 
 
@@ -132,21 +82,15 @@ void USplineToolkitInstantiator::RegenerateInternal()
 		return;
 
 	// Get total length to step over
-	const auto TotalLen = SplineComponent->GetSplineLength();
-
-	// Keep the last RMF Sample
-	FSplineToolkitRmfSample LastSample = {
-		.Position = this->SplineComponent->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World),
-		.Distance = 0.0f,
-		.Tangent = this->SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
-		.Reference = this->SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
-	};
+	const auto TotalLen = this->SplineComponent->GetSplineLength();
 
 	int32 RuleIdx = 0;
 
 	// Go over each rule
-	for (const auto& Rule : Ruleset->InstantiationRules)
+	for (const auto& Rule : this->Ruleset->InstantiationRules)
 	{
+		FSplineToolkitRmfSample PrevSample = SplineToolkit::GetFirstRmfSample(this->SplineComponent);
+
 		// Loop over the spline at a set distance of precision. Applying the rules at each point
 		for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += fmax(Rule.StepPrecision, 1.0f))
 		{
@@ -157,23 +101,33 @@ void USplineToolkitInstantiator::RegenerateInternal()
 			if (!ModdedRule.Enabled)
 				continue;
 
+			// Check if it's in an intersection
+			if (const auto* Solver = GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>())
+			{
+				bool bFound = false;
+				for (const auto& Collision : Solver->Collisions)
+				{
+					if (FMath::IsWithin(CurrentDist, Collision.DistanceMin, Collision.DistanceMax))
+					{
+						bFound = true;
+						break;
+					}
+				}
+				if (bFound)
+					continue;
+			}
+
 			// Check if spacing is reached
 			const float offset = fmodf(CurrentDist, ModdedRule.Spacing);
 			if (offset >= ModdedRule.StepPrecision)
 				continue;
 
-			FSplineToolkitRmfSample Sample = GetRMFSampleAtDistance(CurrentDist, LastSample);
-
-			FVector Pos = Sample.Position;
-			FVector Rht = Sample.Bitangent;
-			FVector Fwd = Sample.Tangent;
-			FVector Up = Sample.Reference;
-			FRotator Rot = FRotationMatrix::MakeFromXZ(Fwd, Up).Rotator();
+			auto Sample = SplineToolkit::CalculateRmfSampleAtDistance(PrevSample, this->SplineComponent, CurrentDist);
 
 			TObjectPtr<AActor> InstancerActor = {};
 			if (RuleIdx >= SpawnedInstancedMeshes.Num())
 			{
-				InstancerActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), Pos, Rot);
+				InstancerActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass());
 #if WITH_EDITOR
 				InstancerActor->SetActorLabel("SplineInstantiatorInstancer" + FString::FromInt(RuleIdx));
 #endif
@@ -197,16 +151,20 @@ void USplineToolkitInstantiator::RegenerateInternal()
 
 			if (InstancerActor)
 			{
-				FVector Offset = Rht * ModdedRule.Offset.X;
-				Offset += Fwd * ModdedRule.Offset.Y;
-				Offset += Up * ModdedRule.Offset.Z;
-
-				FTransform Transform{Rot, Pos + Offset, ModdedRule.Scale};
+				FMatrix Rotation{
+					Sample.Bitangent.GetSafeNormal(),
+					Sample.Tangent.GetSafeNormal(),
+					Sample.Reference.GetSafeNormal(),
+					FVector::ZeroVector
+				};
+				FTransform Transform;
+				FVector FinalPosition = Sample.Position + Rotation.TransformPosition(Rule.Offset);
+				Transform.SetComponents(Rotation.ToQuat(), FinalPosition, Rule.Scale);
 
 				if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
 				{
 					InstancerComp->SetStaticMesh(ModdedRule.Mesh);
-					InstancerComp->AddInstance(Transform, true);
+					InstancerComp->AddInstance(Transform, false);
 				}
 			}
 		}

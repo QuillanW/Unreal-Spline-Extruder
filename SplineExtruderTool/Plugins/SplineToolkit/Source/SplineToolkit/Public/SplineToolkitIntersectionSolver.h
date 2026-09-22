@@ -20,6 +20,8 @@ struct FSplineToolkitSplineIntersection
 	float DistanceMax;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	FVector Midpoint;
+
+	bool operator<(const FSplineToolkitSplineIntersection& Other) const;
 };
 
 

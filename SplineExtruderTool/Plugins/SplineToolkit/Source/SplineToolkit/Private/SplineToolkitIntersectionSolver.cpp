@@ -21,6 +21,12 @@ static FAutoConsoleVariableRef CVarShowIntersectionCutoutRanges(
 		"Shows the cutout regions for spline overlaps"));
 
 
+bool FSplineToolkitSplineIntersection::operator<(const FSplineToolkitSplineIntersection& Other) const
+{
+	return this->DistanceMin < Other.DistanceMin;
+}
+
+
 void USplineToolkitIntersectionSolver::OnRegister()
 {
 	Super::OnRegister();
@@ -299,4 +305,5 @@ void USplineToolkitIntersectionSolver::SolveCollisions(const USplineToolkitInter
 		if (Rule.bCheckIntersections)
 			SolveCollisionsFor(Caller, Rule);
 	}
+	this->Collisions.Sort();
 }
