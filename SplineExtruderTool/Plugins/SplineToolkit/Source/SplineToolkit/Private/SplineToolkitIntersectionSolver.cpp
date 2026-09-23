@@ -260,19 +260,12 @@ void USplineToolkitIntersectionSolver::SolveCollisionsFor(const USplineToolkitIn
 	if (!ExtruderA || !SplineA)
 		return;
 
-	for (TObjectIterator<USplineToolkitMeshExtruder> It; It; ++It)
+	auto TestCollisionFor = [&](const AActor* OwnerB)
 	{
-		auto* Comp = *It;
-		if (!IsValid(Comp) || Comp->GetWorld() != GetWorld() || Comp->GetOwner() == GetOwner())
-			continue;
-
-		auto* OwnerB = Comp->GetOwner();
-
-		// Get the extruder
 		auto* ExtruderB = OwnerB->FindComponentByClass<USplineToolkitMeshExtruder>();
 		auto* SplineB = OwnerB->FindComponentByClass<USplineComponent>();
 		if (!ExtruderB || !SplineB || !IsValid(ExtruderB->Ruleset))
-			continue;
+			return;
 
 		for (const auto& RuleB : ExtruderB->Ruleset->ExtrusionRules)
 		{
@@ -285,11 +278,27 @@ void USplineToolkitIntersectionSolver::SolveCollisionsFor(const USplineToolkitIn
 				continue;
 
 			this->Collisions.Add(Result.GetValue());
-
-			// Also call the collision handler for the other one to include this collision
-			if (auto* Solver = OwnerB->FindComponentByClass<USplineToolkitIntersectionSolver>(); Solver && Solver != Caller)
-				Solver->SolveCollisions(this);
 		}
+	};
+
+	if (Caller)
+	{
+		// Only test against the caller to also have its collision
+		auto* OwnerB = Caller->GetOwner();
+		TestCollisionFor(OwnerB);
+		return;
+	}
+
+	for (TObjectIterator<USplineToolkitMeshExtruder> It; It; ++It)
+	{
+		auto* Comp = *It;
+		if (!IsValid(Comp) || Comp->GetWorld() != GetWorld() || Comp->GetOwner() == GetOwner())
+			continue;
+
+		auto* OwnerB = Comp->GetOwner();
+
+		// Get the extruder
+		TestCollisionFor(OwnerB);
 	}
 }
 

@@ -67,8 +67,6 @@ struct FSplineToolkitExtruderMeshData
 	UPROPERTY()
 	FSplineToolkitExtruderDrawData OriginSlice;
 	UPROPERTY()
-	TArray<FSplineToolkitRmfSample> RmfSamples;
-	UPROPERTY()
 	TObjectPtr<AActor> MeshActor;
 	UPROPERTY()
 	TObjectPtr<UProceduralMeshComponent> ProceduralMeshComponent;
@@ -131,8 +129,6 @@ private:
 	// The output meshes
 	UPROPERTY()
 	TArray<FSplineToolkitExtruderMeshData> OutMeshes;
-
-	void RecalculateRmfSamples(int32 NumRmfSamples, FSplineToolkitExtruderMeshData& Data) const;
 
 	void ExtractOriginSlice(UStaticMesh* InputMesh, FSplineToolkitExtruderMeshData& Data) const;
 

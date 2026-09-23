@@ -126,9 +126,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float UvScale = 1.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 NumRmfSamples = 128;
-
 	bool operator==(const FSplineToolkitExtrusionRule&) const = default;
 };
 

@@ -4,12 +4,6 @@
 #include "Components/SplineComponent.h"
 #include "Misc/Zip.h"
 
-int32 GSplineToolkitShowExtruderRmfSamples = 0;
-static FAutoConsoleVariableRef CVarShowExtruderRmfSamples(
-	TEXT("stk.Extruder.ShowRmfSamples"),
-	GSplineToolkitShowExtruderRmfSamples,
-	TEXT("Shows the RMF samples used by the extruder to subdivide and construct a spline mesh."));
-
 int32 GSplineToolkitShowExtruderIndices = 0;
 static FAutoConsoleVariableRef CVarShowExtruderIndices(
 	TEXT("stk.Extruder.ShowIndices"),
@@ -93,7 +87,7 @@ void USplineToolkitMeshExtruder::OnRegister()
 	{
 		if (!Owner->FindComponentByClass<USplineComponent>())
 		{
-			UE_LOG(LogTemp, Error, TEXT("Instantiator requires USplineComponent"));
+			UE_LOG(LogTemp, Error, TEXT("Extruder requires USplineComponent"));
 			return;
 		}
 		this->SplineComponent = Owner->GetComponentByClass<USplineComponent>();
@@ -138,32 +132,16 @@ void USplineToolkitMeshExtruder::TickComponent(float DeltaTime, enum ELevelTick 
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (GSplineToolkitShowExtruderRmfSamples)
-	{
-		for (const auto& Data : this->OutMeshes)
-		{
-			for (const auto& Sample : Data.RmfSamples)
-			{
-				FMatrix CoordinateMatrix{
-					Sample.Bitangent.GetSafeNormal(), Sample.Tangent.GetSafeNormal(), Sample.Reference.GetSafeNormal(),
-					FVector::ZeroVector
-				};
-				DrawDebugCoordinateSystem(GetWorld(), Sample.Position + Data.MeshActor->GetActorLocation(),
-				                          CoordinateMatrix.Rotator(), 100.f, false, -1, 0,
-				                          3.f);
-			}
-		}
-	}
-
 	if (GSplineToolkitShowExtruderIndices)
 	{
+		auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
 		for (const auto& Data : this->OutMeshes)
 		{
-			if (Data.RmfSamples.IsEmpty())
-				continue;
+			if (!RmfSampler)
+				break;
 
 			// Create a transform matrix
-			const auto& Sample = Data.RmfSamples[0];
+			const auto& Sample = RmfSampler->Samples[0];
 			FMatrix Rotation{
 				Sample.Bitangent.GetSafeNormal(), Sample.Tangent.GetSafeNormal(), Sample.Reference.GetSafeNormal(),
 				FVector::ZeroVector
@@ -220,8 +198,6 @@ void USplineToolkitMeshExtruder::RegenerateInternal()
 	for (const auto& Rule : this->Ruleset->ExtrusionRules)
 	{
 		auto& Data = this->OutMeshes[Ptr++];
-
-		RecalculateRmfSamples(Rule.NumRmfSamples, Data);
 		ExtractOriginSlice(Rule.Mesh, Data);
 
 		if (auto* MeshComponent = Data.MeshActor->FindComponentByClass<UProceduralMeshComponent>();
@@ -310,28 +286,6 @@ void USplineToolkitMeshExtruder::ClearConservative()
 			auto& Data = this->OutMeshes.Emplace_GetRef();
 			InitMeshActor(Data.MeshActor, Data.ProceduralMeshComponent);
 		}
-	}
-}
-
-
-void USplineToolkitMeshExtruder::RecalculateRmfSamples(int32 NumRmfSamples, FSplineToolkitExtruderMeshData& Data) const
-{
-	// Perform simple RMF for now
-	Data.RmfSamples.Empty();
-	Data.RmfSamples.Reserve(NumRmfSamples);
-
-	// 0th sample is the first tangent
-	FSplineToolkitRmfSample PrevSample = SplineToolkit::GetFirstRmfSample(this->SplineComponent);
-
-	Data.RmfSamples.Add(PrevSample);
-
-	for (int32 SampleIter = 1; SampleIter < NumRmfSamples; ++SampleIter)
-	{
-		const float Time = SampleIter / static_cast<float>(NumRmfSamples - 1);
-
-		auto NewSample = SplineToolkit::CalculateRmfSampleAtTime(PrevSample, this->SplineComponent, Time);
-		Data.RmfSamples.Add(NewSample);
-		PrevSample = NewSample;
 	}
 }
 
@@ -628,7 +582,7 @@ void USplineToolkitMeshExtruder::AddEndCap(USplineToolkitIntersectionSolver* Sol
                                            const FSplineToolkitExtruderMeshData& Data) const
 {
 	FSplineToolkitRmfSample Sample{
-		.Distance = this->SplineComponent->GetSplineLength() - 0.1f
+		.Distance = FLT_MAX
 	};
 	int32 VertexPtr = 0;
 	bool _;
@@ -652,6 +606,10 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
                                                      bool& OutDontConnect,
                                                      bool bCalledFromSelf) const
 {
+	auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
+	if (!RmfSampler)
+		return false;
+
 	OutDontConnect = false;
 	if (FMath::Abs(OutRmfSample.Distance - SplineComponent->GetSplineLength()) < KINDA_SMALL_NUMBER)
 		return false;
@@ -660,47 +618,64 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 	if (OutRmfSample.Distance == -1.f)
 	{
 		// This should sample the first one
-		OutRmfSample = SplineToolkit::GetFirstRmfSample(SplineComponent);
+		OutRmfSample = RmfSampler->Samples[0];
+	}
+	else if (OutRmfSample.Distance == FLT_MAX)
+	{
+		// This should sample the last one
+		OutRmfSample = RmfSampler->Samples.Last();
 	}
 	else if (!bCalledFromSelf)
 	{
 		// find the next sample based on distance
-		const auto* BestSample = &Data.RmfSamples.Last();
-		for (const auto& Sample : Data.RmfSamples)
-		{
-			if (Sample.Distance < BestSample->Distance && Sample.Distance > OutRmfSample.Distance)
-				BestSample = &Sample;
-		}
-		OutRmfSample = *BestSample;
+		OutRmfSample = RmfSampler->GetNextSampleFromDistance(OutRmfSample.Distance);
 	}
 
 	if (IsValid(Solver) && !bCalledFromSelf)
 	{
 		// Determine the next RMF sample
-		for (const auto& Cut : Solver->Collisions)
+		auto FindCollisionEnd = [&](
+			TCheckedPointerIterator<TArray<FSplineToolkitSplineIntersection>::ElementType, TArray<
+				                        FSplineToolkitSplineIntersection>::SizeType> Iter,
+			auto& Self) -> TPair<decltype(Iter), float>
 		{
-			if (OutRmfSample.Distance > Cut.DistanceMin && OutRmfSample.Distance < Cut.DistanceMax)
+			auto Next = Iter + 1;
+
+			if (Iter == Solver->Collisions.end() || Next == Solver->Collisions.end())
+				return {Iter, Iter->DistanceMax};
+
+			if (FMath::IsWithin(Next->DistanceMin, Iter->DistanceMin, Iter->DistanceMax))
+				return Self(Next, Self);
+			return {Iter, Iter->DistanceMax};
+		};
+
+		for (auto Iter = Solver->Collisions.begin(); Iter != Solver->Collisions.end(); ++Iter)
+		{
+			const auto& Cut = *Iter;
+			if (FMath::IsWithin(OutRmfSample.Distance, Cut.DistanceMin, Cut.DistanceMax))
 			{
 				// First add the beginning of the range
-				auto BeginSample = SplineToolkit::CalculateRmfSampleAtDistance(
-					OldSample, SplineComponent, Cut.DistanceMin);
+				auto BeginSample = RmfSampler->GetSampleAtDistance(Cut.DistanceMin);
 				DrawnSamples.Add(BeginSample);
 				AddNextSampleToMesh(Solver, DrawData, Rule, Data, BeginSample, OutVertexPtr, OutDontConnect, true);
 				ConnectToPreviousSample(DrawData, OutVertexPtr, Data);
 
-				const auto* EndRef = &OldSample;
-				for (const auto& Sample : Data.RmfSamples)
-				{
-					if (Sample.Distance < Cut.DistanceMax && Sample.Distance > EndRef->Distance)
-						EndRef = &Sample;
-				}
-				OutRmfSample = SplineToolkit::CalculateRmfSampleAtDistance(*EndRef, SplineComponent, Cut.DistanceMax);
+				const TPair<decltype(Iter), float> CutEnd = FindCollisionEnd(Iter, FindCollisionEnd);
+				Iter = CutEnd.Get<0>();
+
+				OutRmfSample = RmfSampler->GetSampleAtDistance(CutEnd.Get<1>());
 				OutDontConnect = true;
 			}
 		}
 	}
 
-	const float TotalSplineDistance = Data.RmfSamples.Last().Distance;
+	if (FMath::Abs(OutRmfSample.Distance - OldSample.Distance) < KINDA_SMALL_NUMBER)
+	{
+		OutDontConnect = true;
+		return OutRmfSample != RmfSampler->Samples.Last();
+	}
+
+	const float TotalSplineDistance = RmfSampler->Samples.Last().Distance;
 
 	// Instantiate a slice per sample
 	OutVertexPtr = DrawData.VertexTop();
@@ -769,23 +744,36 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
                                              const FSplineToolkitExtruderMeshData& Data) const
 {
 	auto* Solver = GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
+	auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
+
+	if (!RmfSampler)
+		return;
 
 	FSplineToolkitExtruderDrawData DrawData{};
-	DrawData.InitVertices((Rule.NumRmfSamples + 2) * Data.OriginSlice.VertexNum());
+	DrawData.InitVertices((RmfSampler->NumRmfSamples + 2) * Data.OriginSlice.VertexNum());
 
 	// Start and end cap
-	const uint32 MaxNumConnectionsIndices = (Rule.NumRmfSamples + 1) * Data.OriginSlice.VertexNum() * 6;
+	const uint32 MaxNumConnectionsIndices = (RmfSampler->NumRmfSamples + 1) * Data.OriginSlice.VertexNum() * 6;
 
-	AddStartCap(Solver, DrawData, Rule, Data);
-	auto StartCap = ComputeEndCap(Data, 0, true);
+	bool bNoStartCap = Solver && !Solver->Collisions.IsEmpty() && Solver->Collisions[0].DistanceMin == 0.f;
+	if (bNoStartCap)
+	{
+		// Skip start cap on 0
+		DrawData.InitIndices(MaxNumConnectionsIndices);
+	}
+	else
+	{
+		AddStartCap(Solver, DrawData, Rule, Data);
+		auto StartCap = ComputeEndCap(Data, 0, true);
 
-	const uint32 NumCapsIndices = 2 * StartCap.Num();
-	DrawData.InitIndices(MaxNumConnectionsIndices + NumCapsIndices);
+		const uint32 NumCapsIndices = 2 * StartCap.Num();
+		DrawData.InitIndices(MaxNumConnectionsIndices + NumCapsIndices);
 
-	// Insert end caps
-	DrawData.AppendIndices(MoveTemp(StartCap));
+		// Insert end caps
+		DrawData.AppendIndices(MoveTemp(StartCap));
+	}
 
-	int32 VertexPtr = Data.OriginSlice.VertexNum();
+	int32 VertexPtr = bNoStartCap ? 0 : Data.OriginSlice.VertexNum();
 	FSplineToolkitRmfSample Sample{
 		.Distance = -1.f
 	};

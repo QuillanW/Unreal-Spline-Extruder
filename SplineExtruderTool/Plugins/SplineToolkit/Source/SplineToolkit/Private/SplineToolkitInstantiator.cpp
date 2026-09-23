@@ -81,6 +81,10 @@ void USplineToolkitInstantiator::RegenerateInternal()
 	if (!this->Ruleset->IsValidLowLevelFast())
 		return;
 
+	auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
+	if (!RmfSampler)
+		return;
+
 	// Get total length to step over
 	const auto TotalLen = this->SplineComponent->GetSplineLength();
 
@@ -89,8 +93,6 @@ void USplineToolkitInstantiator::RegenerateInternal()
 	// Go over each rule
 	for (const auto& Rule : this->Ruleset->InstantiationRules)
 	{
-		FSplineToolkitRmfSample PrevSample = SplineToolkit::GetFirstRmfSample(this->SplineComponent);
-
 		// Loop over the spline at a set distance of precision. Applying the rules at each point
 		for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += fmax(Rule.StepPrecision, 1.0f))
 		{
@@ -122,7 +124,7 @@ void USplineToolkitInstantiator::RegenerateInternal()
 			if (offset >= ModdedRule.StepPrecision)
 				continue;
 
-			auto Sample = SplineToolkit::CalculateRmfSampleAtDistance(PrevSample, this->SplineComponent, CurrentDist);
+			auto Sample = RmfSampler->GetSampleAtDistance(CurrentDist);
 
 			TObjectPtr<AActor> InstancerActor = {};
 			if (RuleIdx >= SpawnedInstancedMeshes.Num())
@@ -159,7 +161,7 @@ void USplineToolkitInstantiator::RegenerateInternal()
 				};
 				FTransform Transform;
 				FVector FinalPosition = Sample.Position + Rotation.TransformPosition(Rule.Offset);
-				Transform.SetComponents(Rotation.ToQuat(), FinalPosition, Rule.Scale);
+				Transform.SetComponents(Rotation.ToQuat().GetNormalized(), FinalPosition, Rule.Scale);
 
 				if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
 				{
