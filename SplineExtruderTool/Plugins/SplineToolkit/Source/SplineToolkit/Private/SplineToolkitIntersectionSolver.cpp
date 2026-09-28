@@ -20,6 +20,13 @@ static FAutoConsoleVariableRef CVarShowIntersectionCutoutRanges(
 	TEXT(
 		"Shows the cutout regions for spline overlaps"));
 
+int32 GSplineToolkitShowIntersectionCheckBoxes = 0;
+static FAutoConsoleVariableRef CVarShowIntersectionCheckBoxes(
+	TEXT("stk.IntersectionSolver.ShowCheckBoxes"),
+	GSplineToolkitShowIntersectionCheckBoxes,
+	TEXT(
+		"Shows all bounding boxes that are being checked when testing for spline intersection"));
+
 
 bool FSplineToolkitSplineIntersection::operator<(const FSplineToolkitSplineIntersection& O) const
 {
@@ -164,13 +171,14 @@ TOptional<TArray<FSplineToolkitSplineIntersection>> USplineToolkitIntersectionSo
 	auto CalcBounds = [&](USplineComponent* Comp, FBox& SplineBox, TArray<FBox>& SegmentBoxes,
 	                      const FSplineToolkitExtrusionRule& Rule)
 	{
+		const auto NumPointsComp = Comp->GetNumberOfSplinePoints();
 		for (int32 I = 0; I < Comp->GetNumberOfSplinePoints() - 1; ++I)
 		{
 			FBox Box{ForceInit};
 			Box += SampleOffsetLocation(Comp, I, Rule.Offset);
-			Box += SampleOffsetLocation(Comp, (I + 1) % NumPointsB, Rule.Offset);
+			Box += SampleOffsetLocation(Comp, (I + 1) % NumPointsComp, Rule.Offset);
 			Box += SampleLeaveTangentOffsetLocation(Comp, I, Rule.Offset);
-			Box += SampleArriveTangentOffsetLocation(Comp, (I + 1) % NumPointsB, Rule.Offset);
+			Box += SampleArriveTangentOffsetLocation(Comp, (I + 1) % NumPointsComp, Rule.Offset);
 			Box = Box.ExpandBy(CombinedRadius);
 			SegmentBoxes.Add(Box);
 			SplineBox += Box;
@@ -180,6 +188,12 @@ TOptional<TArray<FSplineToolkitSplineIntersection>> USplineToolkitIntersectionSo
 	CalcBounds(SplineB, BoundsB, BoxesB, RuleB);
 
 	auto* SolverB = SplineB->GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
+
+	if (GSplineToolkitShowIntersectionCheckBoxes)
+	{
+		DrawDebugBox(GetWorld(), BoundsA.GetCenter(), BoundsA.GetExtent(), FColor::Magenta);
+		DrawDebugBox(GetWorld(), BoundsB.GetCenter(), BoundsB.GetExtent(), FColor::Magenta);
+	}
 
 	if (!FBoxSphereBounds::BoxesIntersect(BoundsA, BoundsB))
 	{
@@ -215,8 +229,12 @@ TOptional<TArray<FSplineToolkitSplineIntersection>> USplineToolkitIntersectionSo
 		// Cheap segment-level reject before resampling either side at full density.
 		const FBox& SegBoundsA = BoxesA[SegIndexA];
 		const FBox& SegBoundsB = BoxesB[SegIndexB];
-		DrawDebugBox(GetWorld(), SegBoundsA.GetCenter(), SegBoundsA.GetExtent(), FColor::Cyan);
-		DrawDebugBox(GetWorld(), SegBoundsB.GetCenter(), SegBoundsB.GetExtent(), FColor::Cyan);
+
+		if (GSplineToolkitShowIntersectionCheckBoxes)
+		{
+			DrawDebugBox(GetWorld(), SegBoundsA.GetCenter(), SegBoundsA.GetExtent(), FColor::Cyan);
+			DrawDebugBox(GetWorld(), SegBoundsB.GetCenter(), SegBoundsB.GetExtent(), FColor::Cyan);
+		}
 
 		if (!SegBoundsA.Intersect(SegBoundsB))
 		{
@@ -352,8 +370,8 @@ void USplineToolkitIntersectionSolver::SolveCollisionsFor(const USplineToolkitIn
 			if (auto* InstantiatorB = OwnerB->FindComponentByClass<USplineToolkitInstantiator>())
 				InstantiatorB->MarkDirty();
 
-			if (auto* IntersectionB = OwnerB->FindComponentByClass<USplineToolkitIntersectionSolver>(); IntersectionB &&
-				!Caller)
+			if (auto* IntersectionB = OwnerB->FindComponentByClass<USplineToolkitIntersectionSolver>();
+				IntersectionB && !Caller)
 				IntersectionB->SolveCollisions(this);
 
 			this->Collisions.Append(Result.GetValue());
@@ -391,7 +409,10 @@ void USplineToolkitIntersectionSolver::SolveCollisions(const USplineToolkitInter
 	RemoveDegenerate();
 
 	if (Caller)
-		this->Collisions.RemoveAll([&](const FSplineToolkitSplineIntersection& Intersection){ return Intersection.Other == Caller->SplineComponent; });
+		this->Collisions.RemoveAll([&](const FSplineToolkitSplineIntersection& Intersection)
+		{
+			return Intersection.Other == Caller->SplineComponent;
+		});
 	else
 		this->Collisions.Empty();
 
