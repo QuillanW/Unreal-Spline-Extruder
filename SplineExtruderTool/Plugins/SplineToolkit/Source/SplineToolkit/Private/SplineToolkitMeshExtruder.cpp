@@ -799,8 +799,8 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 			ConnectToPreviousSample(DrawData, VertexPtr, Data);
 	}
 
-	bool bNoEndCap = Solver && !Solver->Collisions.IsEmpty() && Solver->Collisions.Last().DistanceMax == this->
-		SplineComponent->GetSplineLength();
+	bool bNoEndCap = Solver && !Solver->Collisions.IsEmpty() && FMath::IsNearlyEqual(
+		Solver->Collisions.Last().DistanceMax, SplineComponent->GetSplineLength(), KINDA_SMALL_NUMBER);
 	if (!bNoEndCap)
 	{
 		AddEndCap(Solver, DrawData, Rule, Data);
