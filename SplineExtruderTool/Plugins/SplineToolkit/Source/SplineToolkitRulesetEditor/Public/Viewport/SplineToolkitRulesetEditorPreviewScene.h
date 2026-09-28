@@ -29,7 +29,7 @@ public:
 	
 	void UpdatePreview();
 	
-	void SetPreviewSpline(SplinePreview preview);
+	void SetPreviewSpline(SplinePreview Preview);
 	
 	SplinePreview GetCurrentPreview() const { return CurrentPreview; }
 
