@@ -104,6 +104,8 @@ public:
 	/** Clears out all data related to a rule but keeps old actors alive */
 	void ClearConservative();
 
+	void MarkDirty();
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	bool bUpdateOnRulesetChange = true;
 
@@ -117,9 +119,6 @@ public:
 	USplineComponent* SplineComponent = nullptr;
 
 private:
-
-	// NOTE: TEMP
-	mutable TArray<FSplineToolkitRmfSample> DrawnSamples;
 
 	void RegenerateInternal();
 	void ReapplyMaterials();

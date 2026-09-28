@@ -26,7 +26,7 @@ struct FSplineToolkitRmfSample
 	bool operator==(const FSplineToolkitRmfSample&) const = default;
 };
 
-UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent), DisplayName="[Spline Toolkit] RMF Sampler")
 class SPLINETOOLKIT_API USplineToolkitRmfSampler : public UActorComponent
 {
 	GENERATED_BODY()
@@ -51,9 +51,10 @@ public:
 
 	FSplineToolkitRmfSample GetNextSampleFromDistance(float Distance);
 
-private:
-
+	UFUNCTION(CallInEditor, BlueprintCallable)
 	void Regenerate();
+
+private:
 
 	// Used by the public functions after determining a reference (and a distance)
 	FSplineToolkitRmfSample InternalGetSampleAtDistance(const FSplineToolkitRmfSample& Reference, float Distance);

@@ -44,6 +44,8 @@ public:
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit")
 	void Clear();
 
+	void MarkDirty();
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	USplineToolkitRuleset* Ruleset = nullptr;
 

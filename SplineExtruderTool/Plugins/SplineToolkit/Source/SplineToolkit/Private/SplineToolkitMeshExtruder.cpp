@@ -182,6 +182,12 @@ void USplineToolkitMeshExtruder::Regenerate()
 }
 
 
+void USplineToolkitMeshExtruder::MarkDirty()
+{
+	this->bRegenerate = true;
+}
+
+
 void USplineToolkitMeshExtruder::RegenerateInternal()
 {
 	this->bRegenerate = false;
@@ -636,17 +642,19 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 		// Determine the next RMF sample
 		auto FindCollisionEnd = [&](
 			TCheckedPointerIterator<TArray<FSplineToolkitSplineIntersection>::ElementType, TArray<
-				                        FSplineToolkitSplineIntersection>::SizeType> Iter,
+				                        FSplineToolkitSplineIntersection>::SizeType> Iter, float RunningMax,
 			auto& Self) -> TPair<decltype(Iter), float>
 		{
+			RunningMax = FMath::Max(RunningMax, Iter->DistanceMax);
 			auto Next = Iter + 1;
 
-			if (Iter == Solver->Collisions.end() || Next == Solver->Collisions.end())
-				return {Iter, Iter->DistanceMax};
+			if (Next == Solver->Collisions.end())
+				return {Iter, RunningMax};
 
-			if (FMath::IsWithin(Next->DistanceMin, Iter->DistanceMin, Iter->DistanceMax))
-				return Self(Next, Self);
-			return {Iter, Iter->DistanceMax};
+			if (Next->DistanceMin <= RunningMax)
+				return Self(Next, RunningMax, Self);
+
+			return {Iter, RunningMax};
 		};
 
 		for (auto Iter = Solver->Collisions.begin(); Iter != Solver->Collisions.end(); ++Iter)
@@ -656,11 +664,10 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 			{
 				// First add the beginning of the range
 				auto BeginSample = RmfSampler->GetSampleAtDistance(Cut.DistanceMin);
-				DrawnSamples.Add(BeginSample);
 				AddNextSampleToMesh(Solver, DrawData, Rule, Data, BeginSample, OutVertexPtr, OutDontConnect, true);
 				ConnectToPreviousSample(DrawData, OutVertexPtr, Data);
 
-				const TPair<decltype(Iter), float> CutEnd = FindCollisionEnd(Iter, FindCollisionEnd);
+				const TPair<decltype(Iter), float> CutEnd = FindCollisionEnd(Iter, Iter->DistanceMax, FindCollisionEnd);
 				Iter = CutEnd.Get<0>();
 
 				OutRmfSample = RmfSampler->GetSampleAtDistance(CutEnd.Get<1>());
@@ -689,6 +696,10 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 		FVector::ZeroVector
 	};
 	FTransform Transform;
+
+	if (Rotation.ContainsNaN())
+		return true;
+
 	Transform.SetComponents(Rotation.ToQuat(), OutRmfSample.Position, FVector::OneVector);
 
 	// Transform all vertices with this matrix
@@ -717,8 +728,12 @@ void USplineToolkitMeshExtruder::ConnectToPreviousSample(FSplineToolkitExtruderD
 	const int32 EdgesPerRing = SliceCount;
 
 	// Linking samples
-	const uint32 CurrentRing = StartIndex - 2 * SliceCount;
-	const uint32 NextRing = CurrentRing + SliceCount;
+	const int32 CurrentRing = StartIndex - 2 * SliceCount;
+	const int32 NextRing = CurrentRing + SliceCount;
+
+	// Don't connect when there is no previous ring
+	if (CurrentRing < 0)
+		return;
 
 	for (int32 V = 0; V < EdgesPerRing; ++V)
 	{
@@ -777,19 +792,22 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 	FSplineToolkitRmfSample Sample{
 		.Distance = -1.f
 	};
-	DrawnSamples.Empty();
 	bool bDontConnect = false;
 	while (AddNextSampleToMesh(Solver, DrawData, Rule, Data, Sample, VertexPtr, bDontConnect))
 	{
-		DrawnSamples.Add(Sample);
 		if (!bDontConnect)
 			ConnectToPreviousSample(DrawData, VertexPtr, Data);
 	}
 
-	AddEndCap(Solver, DrawData, Rule, Data);
+	bool bNoEndCap = Solver && !Solver->Collisions.IsEmpty() && Solver->Collisions.Last().DistanceMax == this->
+		SplineComponent->GetSplineLength();
+	if (!bNoEndCap)
+	{
+		AddEndCap(Solver, DrawData, Rule, Data);
 
-	auto EndCap = ComputeEndCap(Data, DrawData.VertexTop() - Data.OriginSlice.VertexNum(), false);
-	DrawData.AppendIndices(MoveTemp(EndCap));
+		auto EndCap = ComputeEndCap(Data, DrawData.VertexTop() - Data.OriginSlice.VertexNum(), false);
+		DrawData.AppendIndices(MoveTemp(EndCap));
+	}
 
 	DrawData.ShrinkFit();
 

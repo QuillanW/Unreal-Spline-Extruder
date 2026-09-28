@@ -143,6 +143,19 @@ FSplineToolkitRmfSample USplineToolkitRmfSampler::InternalGetSampleAtDistance(co
 	// Page 7, Table I
 	const FVector Reflection1 = Position - Reference.Position;
 	const float Reflection1SqrLength = Reflection1.SquaredLength();
+
+	if (FMath::IsNearlyZero(Reflection1SqrLength))
+	{
+		return FSplineToolkitRmfSample{
+			.Position = Position,
+			.Distance = Distance,
+			.Tangent = Tangent,
+			.Bitangent = Reference.Bitangent,
+			.Reference = Reference.Reference,
+			.Roll = Reference.Roll
+		};
+	}
+
 	const FVector PrevReferenceLeftHanded = Reference.Reference - (2.0f / Reflection1SqrLength) * Reflection1.
 		Dot(Reference.Reference) * Reflection1;
 	const FVector PrevTangentLeftHanded = Reference.Tangent - (2.0f / Reflection1SqrLength) * Reflection1.

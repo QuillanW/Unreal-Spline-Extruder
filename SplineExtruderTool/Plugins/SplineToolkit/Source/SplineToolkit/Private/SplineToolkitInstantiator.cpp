@@ -120,8 +120,8 @@ void USplineToolkitInstantiator::RegenerateInternal()
 			}
 
 			// Check if spacing is reached
-			const float offset = fmodf(CurrentDist, ModdedRule.Spacing);
-			if (offset >= ModdedRule.StepPrecision)
+			const float Offset = fmodf(CurrentDist, ModdedRule.Spacing);
+			if (Offset >= ModdedRule.StepPrecision)
 				continue;
 
 			auto Sample = RmfSampler->GetSampleAtDistance(CurrentDist);
@@ -221,6 +221,12 @@ void USplineToolkitInstantiator::Clear()
 			actor->Destroy();
 
 	SpawnedInstancedMeshes.Empty();
+}
+
+
+void USplineToolkitInstantiator::MarkDirty()
+{
+	this->bRegenerate = true;
 }
 
 

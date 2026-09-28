@@ -19,13 +19,21 @@ struct FSplineToolkitSplineIntersection
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	float DistanceMax;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
-	FVector Midpoint;
+	FVector Midpoint = FVector::ZeroVector;
 
-	bool operator<(const FSplineToolkitSplineIntersection& Other) const;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	USplineComponent* Other;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	int32 OtherSegment;
+
+	int32 SamplesIncluded = 0;
+
+	bool operator<(const FSplineToolkitSplineIntersection& O) const;
 };
 
 
-UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent), DisplayName="[Spline Toolkit] Intersection Solver")
 class SPLINETOOLKIT_API USplineToolkitIntersectionSolver : public UActorComponent
 {
 	GENERATED_BODY()
@@ -44,6 +52,9 @@ public:
 	UFUNCTION(CallInEditor, BlueprintCallable)
 	void SolveCollisions(const USplineToolkitIntersectionSolver* Caller = nullptr);
 
+	void RemoveDegenerate();
+	void RemoveCollisionsWith(USplineComponent* Spline, int32 Segment = INT32_MAX);
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	USplineToolkitRuleset* Ruleset = nullptr;
 
@@ -60,11 +71,10 @@ public:
 private:
 
 	// Returns the range where a spline mesh intersects another
-	static TOptional<FSplineToolkitSplineIntersection> TestCollision(USplineComponent* SplineA,
-	                                                                 const FSplineToolkitExtrusionRule& RuleA,
-	                                                                 USplineComponent* SplineB,
-	                                                                 const FSplineToolkitExtrusionRule& RuleB,
-	                                                                 const float Tolerance);
+	TOptional<TArray<FSplineToolkitSplineIntersection>> TestCollision(USplineComponent* SplineA,
+	                                                                  const FSplineToolkitExtrusionRule& RuleA,
+	                                                                  USplineComponent* SplineB,
+	                                                                  const FSplineToolkitExtrusionRule& RuleB);
 
 	void SolveCollisionsFor(const USplineToolkitIntersectionSolver* Caller, const FSplineToolkitExtrusionRule& Rule);
 
