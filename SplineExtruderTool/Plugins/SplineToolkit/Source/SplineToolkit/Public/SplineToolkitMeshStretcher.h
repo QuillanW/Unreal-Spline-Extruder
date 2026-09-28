@@ -29,8 +29,6 @@ public:
 protected:
 	virtual void OnRegister() override;
 	
-	FSplineToolkitRmfSample GetRMFSampleAtDistance(float d, FSplineToolkitRmfSample& prevSample) const;
-	
 	void RegenerateInternal();
 	void ReapplyMaterials();
 	

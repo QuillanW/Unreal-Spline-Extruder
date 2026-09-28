@@ -9,6 +9,13 @@
 #include "Components/SplineComponent.h"
 #include "Misc/Zip.h"
 
+int32 GSplineToolkitShowAnchors = 0;
+static FAutoConsoleVariableRef CVarShowAnchors(
+	TEXT("stk.ShowAnchors"),
+	GSplineToolkitShowAnchors,
+	TEXT(
+		"Shows debug spheres where anchors are placed on any rule"));
+
 // Sets default values for this component's properties
 USplineToolkitInstantiator::USplineToolkitInstantiator()
 {
@@ -185,6 +192,14 @@ void USplineToolkitInstantiator::RegenerateInternal()
 					InstancerComp->SetStaticMesh(ModdedRule.Mesh);
 					InstancerComp->AddInstance(Transform, false);
 				}
+				
+				for (auto Anchor : ModdedRule.Anchors)
+				{
+					auto PlacedAnchor = Anchor;
+					PlacedAnchor.SpawnedWorldLocation = Sample.Position + Rotation.TransformPosition(PlacedAnchor.Offset);
+					Anchors.Add(PlacedAnchor);
+				}
+					
 			}
 		}
 
@@ -221,6 +236,10 @@ void USplineToolkitInstantiator::TickComponent(
 
 	if (bRegenerate)
 		RegenerateInternal();
+	
+	if (GSplineToolkitShowAnchors)
+		for (const auto& Anchor : Anchors)
+			DrawDebugSphere(GetWorld(), Anchor.SpawnedWorldLocation, 10.0f, 8, FColor::White);
 }
 
 
@@ -238,6 +257,7 @@ void USplineToolkitInstantiator::Clear()
 			actor->Destroy();
 
 	SpawnedInstancedMeshes.Empty();
+	Anchors.Empty();
 }
 
 

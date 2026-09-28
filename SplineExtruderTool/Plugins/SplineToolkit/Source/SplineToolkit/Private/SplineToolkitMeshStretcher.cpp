@@ -34,58 +34,6 @@ void USplineToolkitMeshStretcher::EndPlay(const EEndPlayReason::Type EndPlayReas
 }
 
 
-FSplineToolkitRmfSample USplineToolkitMeshStretcher::GetRMFSampleAtDistance(
-	float Distance, FSplineToolkitRmfSample& PrevSample) const
-{
-	if (Distance <= 0.0f)
-	{
-		auto NewSample = PrevSample;
-		const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
-		NewSample.Reference = NewSample.Reference.RotateAngleAxis(Roll, NewSample.Tangent);
-		NewSample.Bitangent = NewSample.Tangent.Cross(NewSample.Reference);
-		return NewSample;
-	}
-
-	const FVector Position = this->SplineComponent->GetLocationAtDistanceAlongSpline(
-		Distance, ESplineCoordinateSpace::World);
-	const FVector Tangent = this->SplineComponent->GetTangentAtDistanceAlongSpline(
-		Distance, ESplineCoordinateSpace::World).GetSafeNormal();
-
-	// Perform the first reflection R_1
-	// Algorithm from https://dl.acm.org/doi/epdf/10.1145/1330511.1330513
-	// Page 7, Table I
-	const FVector Reflection1 = Position - PrevSample.Position;
-	const float Reflection1SqrLength = Reflection1.SquaredLength();
-	const FVector PrevReferenceLeftHanded = PrevSample.Reference - (2.0f / Reflection1SqrLength) * Reflection1.
-		Dot(PrevSample.Reference) * Reflection1;
-	const FVector PrevTangentLeftHanded = PrevSample.Tangent - (2.0f / Reflection1SqrLength) * Reflection1.
-		Dot(PrevSample.Tangent) * Reflection1;
-
-	const FVector Reflection2 = Tangent - PrevTangentLeftHanded;
-	const float Reflection2SqrLength = Reflection2.SquaredLength();
-	const FVector NewReference = PrevReferenceLeftHanded - (2.0f / Reflection2SqrLength) * Reflection2.Dot(
-		PrevReferenceLeftHanded) * Reflection2;
-
-	const FVector NewBitangent = Tangent.Cross(NewReference);
-
-	auto NewSample = FSplineToolkitRmfSample{
-		.Position = Position,
-		.Distance = Distance,
-		.Tangent = Tangent,
-		.Bitangent = NewBitangent,
-		.Reference = NewReference
-	};
-
-	PrevSample = NewSample;
-
-	const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
-
-	NewSample.Reference = NewSample.Reference.RotateAngleAxis(Roll, NewSample.Tangent);
-	NewSample.Bitangent = NewSample.Tangent.Cross(NewSample.Reference);
-	return NewSample;
-}
-
-
 void USplineToolkitMeshStretcher::OnRegister()
 {
 	Super::OnRegister();

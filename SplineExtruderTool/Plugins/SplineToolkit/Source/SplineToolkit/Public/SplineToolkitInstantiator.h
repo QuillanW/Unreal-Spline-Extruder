@@ -63,6 +63,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	TArray<TObjectPtr<AActor>> SpawnedInstancedMeshes = {};
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	TArray<FSplineToolkitAnchor> Anchors;
+	
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
