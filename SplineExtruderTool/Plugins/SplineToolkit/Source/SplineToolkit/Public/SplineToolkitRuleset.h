@@ -20,25 +20,6 @@ float GetCurvatureAtDistanceAlongSpline(USplineComponent* Spline, float Distance
 
 class USplineToolkitRulesetModifierBase;
 
-
-// RMF Sample type
-USTRUCT()
-struct FSplineToolkitRmfSample
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	FVector Position;
-	UPROPERTY()
-	float Distance;
-	UPROPERTY()
-	FVector Tangent;   // Front vector
-	UPROPERTY()
-	FVector Bitangent; // Right vector
-	UPROPERTY()
-	FVector Reference; // Up vector
-};
-
 /// An anchor used by rules
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitAnchor
@@ -100,6 +81,9 @@ struct SPLINETOOLKIT_API FSplineToolkitExtrusionRule
 public:
 	GENERATED_BODY()
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bCheckIntersections = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UStaticMesh* Mesh = nullptr;
 
@@ -113,13 +97,15 @@ public:
 	FVector Offset;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FVector Scale = FVector::OneVector;
+	FVector2D Scale = FVector2D::One();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 NumRmfSamples = 128;
+	float UvScale = 1.0f;
 	
 	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
 	TArray<TObjectPtr<USplineToolkitRulesetModifierBase>> Modifiers;
+
+	bool operator==(const FSplineToolkitExtrusionRule&) const = default;
 };
 
 /// Stretching rule for its matching component

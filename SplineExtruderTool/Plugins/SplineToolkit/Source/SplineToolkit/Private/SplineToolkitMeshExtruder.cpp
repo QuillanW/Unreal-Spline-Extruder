@@ -5,18 +5,76 @@
 #include "Components/SplineComponent.h"
 #include "Misc/Zip.h"
 
-int32 GSplineToolkitShowExtruderRmfSamples = 0;
-static FAutoConsoleVariableRef CVarShowExtruderRmfSamples(
-	TEXT("stk.Extruder.ShowRmfSamples"),
-	GSplineToolkitShowExtruderRmfSamples,
-	TEXT("Shows the RMF samples used by the extruder to subdivide and construct a spline mesh."));
-
 int32 GSplineToolkitShowExtruderIndices = 0;
 static FAutoConsoleVariableRef CVarShowExtruderIndices(
 	TEXT("stk.Extruder.ShowIndices"),
 	GSplineToolkitShowExtruderIndices,
 	TEXT(
 		"Shows the indices of the start cap. This is useful when debugging the code in the plugin itself. Only works in PIE/Runtime."));
+
+
+#pragma region DrawData impl
+
+void FSplineToolkitExtruderDrawData::ReserveVertices(uint32 NumVertices)
+{
+	this->Positions.Reserve(NumVertices);
+	this->Normals.Reserve(NumVertices);
+	this->Tangents.Reserve(NumVertices);
+	this->Uv0.Reserve(NumVertices);
+}
+
+
+void FSplineToolkitExtruderDrawData::InitVertices(uint32 NumVertices)
+{
+	this->Positions.Init(FVector::ZeroVector, NumVertices);
+	this->Normals.Init(FVector::ZeroVector, NumVertices);
+	this->Tangents.Init(FProcMeshTangent{FVector::ZeroVector, false}, NumVertices);
+	this->Uv0.Init(FVector2D::ZeroVector, NumVertices);
+}
+
+
+void FSplineToolkitExtruderDrawData::ReserveIndices(uint32 NumIndices) { this->Indices.Reserve(NumIndices); }
+void FSplineToolkitExtruderDrawData::InitIndices(uint32 NumIndices) { this->Indices.Init(0, NumIndices); }
+
+
+void FSplineToolkitExtruderDrawData::InsertVertices(const FSplineToolkitExtruderDrawData& Other, uint32 Where)
+{
+	this->Positions.Insert(Other.Positions.GetData(), Other.Positions.Num(), Where);
+	this->Normals.Insert(Other.Normals.GetData(), Other.Normals.Num(), Where);
+	this->Tangents.Insert(Other.Tangents.GetData(), Other.Tangents.Num(), Where);
+	this->Uv0.Insert(Other.Uv0.GetData(), Other.Uv0.Num(), Where);
+	VertexTopIdx = Where + Other.VertexNum();
+}
+
+
+void FSplineToolkitExtruderDrawData::AppendIndices(TArray<int32>&& List)
+{
+	const auto Index = this->IndexTopIdx;
+	this->IndexTopIdx += List.Num();
+	this->Indices.Insert(MoveTemp(List), Index);
+}
+
+
+void FSplineToolkitExtruderDrawData::AddIndex(int32 Index) { this->Indices[IndexTopIdx++] = Index; }
+
+
+void FSplineToolkitExtruderDrawData::ShrinkFit()
+{
+	this->Positions.SetNum(VertexTopIdx);
+	this->Normals.SetNum(VertexTopIdx);
+	this->Tangents.SetNum(VertexTopIdx);
+	this->Uv0.SetNum(VertexTopIdx);
+	this->Indices.SetNum(IndexTopIdx);
+}
+
+
+int32 FSplineToolkitExtruderDrawData::VertexTop() const { return this->VertexTopIdx; }
+int32 FSplineToolkitExtruderDrawData::IndexTop() const { return this->IndexTopIdx; }
+
+int32 FSplineToolkitExtruderDrawData::VertexNum() const { return this->Positions.Num(); }
+bool FSplineToolkitExtruderDrawData::IsEmpty() const { return this->Positions.IsEmpty(); }
+
+#pragma endregion
 
 
 void USplineToolkitMeshExtruder::OnRegister()
@@ -30,13 +88,13 @@ void USplineToolkitMeshExtruder::OnRegister()
 	{
 		if (!Owner->FindComponentByClass<USplineComponent>())
 		{
-			UE_LOG(LogTemp, Error, TEXT("Instantiator requires USplineComponent"));
+			UE_LOG(LogTemp, Error, TEXT("Extruder requires USplineComponent"));
 			return;
 		}
 		this->SplineComponent = Owner->GetComponentByClass<USplineComponent>();
 		this->SplineComponent->GetOnSplineChanged().AddLambda([this]()
 		{
-			if (bUpdateOnSplineChange)
+			if (this->bUpdateOnSplineChange)
 				Regenerate();
 		});
 	}
@@ -50,7 +108,8 @@ void USplineToolkitMeshExtruder::OnRegister()
 		});
 		this->Ruleset->OnReapplyMaterials.AddLambda([this]
 		{
-			ReapplyMaterials();
+			if (this->bUpdateOnRulesetChange)
+				ReapplyMaterials();
 		});
 	}
 
@@ -74,32 +133,16 @@ void USplineToolkitMeshExtruder::TickComponent(float DeltaTime, enum ELevelTick 
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (GSplineToolkitShowExtruderRmfSamples)
-	{
-		for (const auto& Data : this->OutMeshes)
-		{
-			for (const auto& Sample : Data.RmfSamples)
-			{
-				FMatrix CoordinateMatrix{
-					Sample.Bitangent.GetSafeNormal(), Sample.Tangent.GetSafeNormal(), Sample.Reference.GetSafeNormal(),
-					FVector::ZeroVector
-				};
-				DrawDebugCoordinateSystem(GetWorld(), Sample.Position + Data.MeshActor->GetActorLocation(),
-				                          CoordinateMatrix.Rotator(), 100.f, false, -1, 0,
-				                          3.f);
-			}
-		}
-	}
-
 	if (GSplineToolkitShowExtruderIndices)
 	{
+		auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
 		for (const auto& Data : this->OutMeshes)
 		{
-			if (Data.RmfSamples.IsEmpty())
-				continue;
+			if (!RmfSampler)
+				break;
 
 			// Create a transform matrix
-			const auto& Sample = Data.RmfSamples[0];
+			const auto& Sample = RmfSampler->Samples[0];
 			FMatrix Rotation{
 				Sample.Bitangent.GetSafeNormal(), Sample.Tangent.GetSafeNormal(), Sample.Reference.GetSafeNormal(),
 				FVector::ZeroVector
@@ -114,7 +157,7 @@ void USplineToolkitMeshExtruder::TickComponent(float DeltaTime, enum ELevelTick 
 		}
 	}
 
-	if (bRegenerate)
+	if (this->bRegenerate)
 		RegenerateInternal();
 }
 
@@ -127,27 +170,41 @@ void USplineToolkitMeshExtruder::OnComponentDestroyed(bool bDestroyingHierarchy)
 }
 
 
+AActor* USplineToolkitMeshExtruder::GetAssociatedActorOfRule(const FSplineToolkitExtrusionRule& Rule) const
+{
+	const auto Idx = this->Ruleset->ExtrusionRules.Find(Rule);
+	return Idx == INDEX_NONE ? nullptr : this->OutMeshes[Idx].MeshActor;
+}
+
+
 void USplineToolkitMeshExtruder::Regenerate()
 {
-	bRegenerate = true;
+	this->bRegenerate = true;
+}
+
+
+void USplineToolkitMeshExtruder::MarkDirty()
+{
+	this->bRegenerate = true;
 }
 
 
 void USplineToolkitMeshExtruder::RegenerateInternal()
 {
-	bRegenerate = false;
-
+	this->bRegenerate = false;
 	ClearConservative();
 
 	if (!this->Ruleset->IsValidLowLevelFast())
+		return;
+
+	// This is a degenerate spline
+	if (SplineComponent->GetNumberOfSplinePoints() < 2)
 		return;
 
 	uint32 Ptr = 0;
 	for (const auto& Rule : this->Ruleset->ExtrusionRules)
 	{
 		auto& Data = this->OutMeshes[Ptr++];
-
-		RecalculateRmfSamples(Rule.NumRmfSamples, Data);
 		ExtractOriginSlice(Rule.Mesh, Data);
 
 		if (auto* MeshComponent = Data.MeshActor->FindComponentByClass<UProceduralMeshComponent>();
@@ -240,112 +297,6 @@ void USplineToolkitMeshExtruder::ClearConservative()
 }
 
 
-void FSplineToolkitExtruderDrawData::Reserve(uint32 NumVertices)
-{
-	this->Positions.Reserve(NumVertices);
-	this->Normals.Reserve(NumVertices);
-	this->Tangents.Reserve(NumVertices);
-	this->Uv0.Reserve(NumVertices);
-}
-
-
-void FSplineToolkitExtruderDrawData::Init(uint32 NumVertices)
-{
-	this->Positions.Init(FVector::ZeroVector, NumVertices);
-	this->Normals.Init(FVector::ZeroVector, NumVertices);
-	this->Tangents.Init(FProcMeshTangent{FVector::ZeroVector, false}, NumVertices);
-	this->Uv0.Init(FVector2D::ZeroVector, NumVertices);
-}
-
-
-void FSplineToolkitExtruderDrawData::Insert(const FSplineToolkitExtruderDrawData& Other, uint32 Where)
-{
-	this->Positions.Insert(Other.Positions.GetData(), Other.Positions.Num(), Where);
-	this->Normals.Insert(Other.Normals.GetData(), Other.Normals.Num(), Where);
-	this->Tangents.Insert(Other.Tangents.GetData(), Other.Tangents.Num(), Where);
-	this->Uv0.Insert(Other.Uv0.GetData(), Other.Uv0.Num(), Where);
-}
-
-
-int32 FSplineToolkitExtruderDrawData::Num() const
-{
-	return this->Positions.Num();
-}
-
-
-bool FSplineToolkitExtruderDrawData::IsEmpty() const
-{
-	return this->Positions.IsEmpty();
-}
-
-
-void USplineToolkitMeshExtruder::RecalculateRmfSamples(int32 NumRmfSamples, FSplineToolkitExtruderMeshData& Data) const
-{
-	// Perform simple RMF for now
-	Data.RmfSamples.Empty();
-	Data.RmfSamples.Reserve(NumRmfSamples);
-
-	// 0th sample is the first tangent
-	FSplineToolkitRmfSample PrevSample = {
-		.Position = this->SplineComponent->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::Local),
-		.Distance = 0.0f,
-		.Tangent = this->SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::Local).GetSafeNormal(),
-		.Reference = this->SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::Local).GetSafeNormal(),
-	};
-	PrevSample.Bitangent = PrevSample.Tangent.Cross(PrevSample.Reference);
-
-	Data.RmfSamples.Add(PrevSample);
-
-	for (int32 SampleIter = 1; SampleIter < NumRmfSamples; ++SampleIter)
-	{
-		const float Time = SampleIter / static_cast<float>(NumRmfSamples - 1);
-
-		const FVector Position = this->SplineComponent->GetLocationAtTime(Time, ESplineCoordinateSpace::Local);
-		const FVector Tangent = this->SplineComponent->GetTangentAtTime(Time, ESplineCoordinateSpace::Local).
-		                              GetSafeNormal();
-		const float Distance = this->SplineComponent->GetDistanceAlongSplineAtLocation(
-			Position, ESplineCoordinateSpace::Local);
-
-		// Perform the first reflection R_1
-		// Algorithm from https://dl.acm.org/doi/epdf/10.1145/1330511.1330513
-		// Page 7, Table I
-		const FVector Reflection1 = Position - PrevSample.Position;
-		const float Reflection1SqrLength = Reflection1.SquaredLength();
-		const FVector PrevReferenceLeftHanded = PrevSample.Reference - (2.0f / Reflection1SqrLength) * Reflection1.
-			Dot(PrevSample.Reference) * Reflection1;
-		const FVector PrevTangentLeftHanded = PrevSample.Tangent - (2.0f / Reflection1SqrLength) * Reflection1.
-			Dot(PrevSample.Tangent) * Reflection1;
-
-		const FVector Reflection2 = Tangent - PrevTangentLeftHanded;
-		const float Reflection2SqrLength = Reflection2.SquaredLength();
-		const FVector NewReference = PrevReferenceLeftHanded - (2.0f / Reflection2SqrLength) * Reflection2.Dot(
-			PrevReferenceLeftHanded) * Reflection2;
-
-		const FVector NewBitangent = Tangent.Cross(NewReference);
-
-		auto NewSample = FSplineToolkitRmfSample{
-			.Position = Position,
-			.Distance = Distance,
-			.Tangent = Tangent,
-			.Bitangent = NewBitangent,
-			.Reference = NewReference
-		};
-		Data.RmfSamples.Add(NewSample);
-		PrevSample = NewSample;
-	}
-
-	// Apply roll
-	for (auto& Sample : Data.RmfSamples)
-	{
-		const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(
-			Sample.Distance, ESplineCoordinateSpace::Local);
-
-		Sample.Reference = Sample.Reference.RotateAngleAxis(Roll, Sample.Tangent);
-		Sample.Bitangent = Sample.Tangent.Cross(Sample.Reference);
-	}
-}
-
-
 void USplineToolkitMeshExtruder::ExtractOriginSlice(UStaticMesh* InputMesh, FSplineToolkitExtruderMeshData& Data) const
 {
 	if (!InputMesh->IsValidLowLevelFast())
@@ -362,7 +313,7 @@ void USplineToolkitMeshExtruder::ExtractOriginSlice(UStaticMesh* InputMesh, FSpl
 	FRawStaticIndexBuffer& Indices = LOD.IndexBuffer;
 
 	Data.OriginSlice = FSplineToolkitExtruderDrawData{};
-	Data.OriginSlice.Reserve(MeshPositions.GetNumVertices());
+	Data.OriginSlice.ReserveVertices(MeshPositions.GetNumVertices());
 
 	// Stores what vertices are used for the
 	TArray<int32> SliceVertices;
@@ -393,7 +344,7 @@ void USplineToolkitMeshExtruder::ExtractOriginSlice(UStaticMesh* InputMesh, FSpl
 	TMap<int32, int32> BuildTranslationTable{};
 	{
 		TArray<FVector> SeenPositions{};
-		for (int32 I = 0; I < Data.OriginSlice.Num(); ++I)
+		for (int32 I = 0; I < Data.OriginSlice.VertexNum(); ++I)
 		{
 			if (auto FoundIndex = SeenPositions.Find(Data.OriginSlice.Positions[I]); FoundIndex == INDEX_NONE)
 			{
@@ -415,7 +366,7 @@ void USplineToolkitMeshExtruder::ExtractOriginSlice(UStaticMesh* InputMesh, FSpl
 
 	// Push that data to the local var
 	FSplineToolkitExtruderDrawData SortedData{};
-	SortedData.Init(SortedIndices.Num());
+	SortedData.InitVertices(SortedIndices.Num());
 
 	int32 Ptr = 0;
 	for (const int32 Idx : SortedIndices)
@@ -442,14 +393,14 @@ USplineToolkitRulesetModifierBase* USplineToolkitMeshExtruder::GetOrCreateModifi
 
 
 // Generated by Claude Sonnet 5 with some tweaks to make it work for my application
-TArray<int32> USplineToolkitMeshExtruder::ComputeEndCap(const FSplineToolkitExtruderMeshData& Data, int16 IndexOffset,
+TArray<int32> USplineToolkitMeshExtruder::ComputeEndCap(const FSplineToolkitExtruderMeshData& Data, int32 IndexOffset,
                                                         bool InvertOrdering)
 {
 	TArray<int32> Indices{};
 
 	TArray<TPair<int32, FVector2D>> Points{};
-	Points.Reserve(Data.OriginSlice.Num());
-	for (int32 I = 0; I < Data.OriginSlice.Num(); ++I)
+	Points.Reserve(Data.OriginSlice.VertexNum());
+	for (int32 I = 0; I < Data.OriginSlice.VertexNum(); ++I)
 	{
 		const FVector& P = Data.OriginSlice.Positions[I];
 		Points.Emplace(I, FVector2D(P.X, P.Z));
@@ -623,104 +574,265 @@ TArray<int32> USplineToolkitMeshExtruder::ReorderToLoop(const FRawStaticIndexBuf
 }
 
 
+void USplineToolkitMeshExtruder::AddStartCap(USplineToolkitIntersectionSolver* Solver,
+                                             FSplineToolkitExtruderDrawData& DrawData,
+                                             const FSplineToolkitExtrusionRule& Rule,
+                                             const FSplineToolkitExtruderMeshData& Data) const
+{
+	FSplineToolkitRmfSample Sample{
+		.Distance = -1.f
+	};
+	int32 VertexPtr = 0;
+	bool _;
+	AddNextSampleToMesh(Solver, DrawData, Rule, Data, Sample, VertexPtr, _);
+
+	const int32 IterEnd = VertexPtr - Data.OriginSlice.VertexNum();
+	while (VertexPtr >= IterEnd)
+	{
+		DrawData.Positions[VertexPtr] -= KINDA_SMALL_NUMBER * Sample.Tangent;
+		DrawData.Normals[VertexPtr--] = -Sample.Tangent;
+	}
+}
+
+
+void USplineToolkitMeshExtruder::AddEndCap(USplineToolkitIntersectionSolver* Solver,
+                                           FSplineToolkitExtruderDrawData& DrawData,
+                                           const FSplineToolkitExtrusionRule& Rule,
+                                           const FSplineToolkitExtruderMeshData& Data) const
+{
+	FSplineToolkitRmfSample Sample{
+		.Distance = FLT_MAX
+	};
+	int32 VertexPtr = 0;
+	bool _;
+	AddNextSampleToMesh(Solver, DrawData, Rule, Data, Sample, VertexPtr, _);
+
+	const int32 IterEnd = VertexPtr - Data.OriginSlice.VertexNum();
+	while (VertexPtr >= IterEnd)
+	{
+		DrawData.Positions[VertexPtr] += KINDA_SMALL_NUMBER * Sample.Tangent;
+		DrawData.Normals[VertexPtr--] = Sample.Tangent;
+	}
+}
+
+
+bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionSolver* Solver,
+                                                     FSplineToolkitExtruderDrawData& DrawData,
+                                                     const FSplineToolkitExtrusionRule& Rule,
+                                                     const FSplineToolkitExtruderMeshData& Data,
+                                                     FSplineToolkitRmfSample& OutRmfSample,
+                                                     int32& OutVertexPtr,
+                                                     bool& OutDontConnect,
+                                                     bool bCalledFromSelf) const
+{
+	auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
+	if (!RmfSampler)
+		return false;
+
+	OutDontConnect = false;
+	if (FMath::Abs(OutRmfSample.Distance - SplineComponent->GetSplineLength()) < KINDA_SMALL_NUMBER)
+		return false;
+
+	auto OldSample = OutRmfSample;
+	if (OutRmfSample.Distance == -1.f)
+	{
+		// This should sample the first one
+		OutRmfSample = RmfSampler->Samples[0];
+	}
+	else if (OutRmfSample.Distance == FLT_MAX)
+	{
+		// This should sample the last one
+		OutRmfSample = RmfSampler->Samples.Last();
+	}
+	else if (!bCalledFromSelf)
+	{
+		// find the next sample based on distance
+		OutRmfSample = RmfSampler->GetNextSampleFromDistance(OutRmfSample.Distance);
+	}
+
+	if (IsValid(Solver) && !bCalledFromSelf)
+	{
+		// Determine the next RMF sample
+		auto FindCollisionEnd = [&](
+			TCheckedPointerIterator<TArray<FSplineToolkitSplineIntersection>::ElementType, TArray<
+				                        FSplineToolkitSplineIntersection>::SizeType> Iter, float RunningMax,
+			auto& Self) -> TPair<decltype(Iter), float>
+		{
+			RunningMax = FMath::Max(RunningMax, Iter->DistanceMax);
+			auto Next = Iter + 1;
+
+			if (Next == Solver->Collisions.end())
+				return {Iter, RunningMax};
+
+			if (Next->DistanceMin <= RunningMax)
+				return Self(Next, RunningMax, Self);
+
+			return {Iter, RunningMax};
+		};
+
+		for (auto Iter = Solver->Collisions.begin(); Iter != Solver->Collisions.end(); ++Iter)
+		{
+			const auto& Cut = *Iter;
+			if (FMath::IsWithin(OutRmfSample.Distance, Cut.DistanceMin, Cut.DistanceMax))
+			{
+				// First add the beginning of the range
+				auto BeginSample = RmfSampler->GetSampleAtDistance(Cut.DistanceMin);
+				AddNextSampleToMesh(Solver, DrawData, Rule, Data, BeginSample, OutVertexPtr, OutDontConnect, true);
+				ConnectToPreviousSample(DrawData, OutVertexPtr, Data);
+
+				const TPair<decltype(Iter), float> CutEnd = FindCollisionEnd(Iter, Iter->DistanceMax, FindCollisionEnd);
+				Iter = CutEnd.Get<0>();
+
+				OutRmfSample = RmfSampler->GetSampleAtDistance(CutEnd.Get<1>());
+				OutDontConnect = true;
+			}
+		}
+	}
+
+	if (FMath::Abs(OutRmfSample.Distance - OldSample.Distance) < KINDA_SMALL_NUMBER)
+	{
+		OutDontConnect = true;
+		return OutRmfSample != RmfSampler->Samples.Last();
+	}
+
+	const float TotalSplineDistance = RmfSampler->Samples.Last().Distance;
+
+	FSplineToolkitStepContext Context {SplineComponent, OutRmfSample.Distance};
+	FSplineToolkitExtrusionRule ModdedRule = Rule;
+	for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
+	{
+		if (!Modifier) continue;
+		ModdedRule = Modifier->ModifyExtrusionStep(Context, ModdedRule);
+	}
+	
+	// Instantiate a slice per sample
+	OutVertexPtr = DrawData.VertexTop();
+	DrawData.InsertVertices(Data.OriginSlice, OutVertexPtr);
+
+	// Create a transform matrix
+	FMatrix Rotation{
+		OutRmfSample.Bitangent.GetSafeNormal(),
+		OutRmfSample.Tangent.GetSafeNormal(),
+		OutRmfSample.Reference.GetSafeNormal(),
+		FVector::ZeroVector
+	};
+	FTransform Transform;
+
+	if (Rotation.ContainsNaN())
+		return true;
+
+	Transform.SetComponents(Rotation.ToQuat(), OutRmfSample.Position, FVector::OneVector);
+
+	// Transform all vertices with this matrix
+	const int32 IterEnd = OutVertexPtr + Data.OriginSlice.VertexNum();
+	for (; OutVertexPtr < IterEnd; ++OutVertexPtr)
+	{
+		DrawData.Positions[OutVertexPtr] = Transform.TransformPosition(
+			(DrawData.Positions[OutVertexPtr] * FVector{ModdedRule.Scale.X, 1.f, ModdedRule.Scale.Y}) + ModdedRule.Offset);
+		DrawData.Normals[OutVertexPtr] = Transform.TransformVector(DrawData.Normals[OutVertexPtr]);
+		DrawData.Tangents[OutVertexPtr].TangentX = Transform.TransformVector(DrawData.Tangents[OutVertexPtr].TangentX);
+		// Set UVs to distance / totalDistance
+		DrawData.Uv0[OutVertexPtr].Y = (OutRmfSample.Distance / TotalSplineDistance) * ModdedRule.UvScale;
+	}
+
+	return true;
+}
+
+
+void USplineToolkitMeshExtruder::ConnectToPreviousSample(FSplineToolkitExtruderDrawData& DrawData, int32 StartIndex,
+                                                         const FSplineToolkitExtruderMeshData& Data) const
+{
+	/*
+	 * Create triangles
+	 */
+	const int32 SliceCount = Data.OriginSlice.VertexNum();
+	const int32 EdgesPerRing = SliceCount;
+
+	// Linking samples
+	const int32 CurrentRing = StartIndex - 2 * SliceCount;
+	const int32 NextRing = CurrentRing + SliceCount;
+
+	// Don't connect when there is no previous ring
+	if (CurrentRing < 0)
+		return;
+
+	for (int32 V = 0; V < EdgesPerRing; ++V)
+	{
+		const int32 NextV = (V + 1) % SliceCount;
+
+		const int32 A = CurrentRing + V;
+		const int32 B = CurrentRing + NextV;
+		const int32 C = NextRing + V;
+		const int32 D = NextRing + NextV;
+
+		DrawData.AddIndex(A);
+		DrawData.AddIndex(B);
+		DrawData.AddIndex(C);
+		DrawData.AddIndex(B);
+		DrawData.AddIndex(D);
+		DrawData.AddIndex(C);
+	}
+}
+
+
 void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& Rule,
                                              UProceduralMeshComponent* MeshComponent,
                                              const FSplineToolkitExtruderMeshData& Data) const
 {
+	auto* Solver = GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
+	auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
+
+	if (!RmfSampler)
+		return;
+
 	FSplineToolkitExtruderDrawData DrawData{};
-	DrawData.Init((Rule.NumRmfSamples + 2) * Data.OriginSlice.Num());
-
-	const float TotalSplineDistance = this->SplineComponent->GetSplineLength();
-
-	uint32 VertexPtr = 0;
-	for (int32 I = -1; I < Rule.NumRmfSamples + 1; ++I)
-	{
-		const auto& Sample = Data.RmfSamples[FMath::Clamp(I, 0, Rule.NumRmfSamples - 1)];
-		
-		FSplineToolkitStepContext Context {SplineComponent, Sample.Distance};
-
-		FSplineToolkitExtrusionRule ModdedRule = Rule;
-		for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
-		{
-			if (!Modifier) continue;
-			ModdedRule = Modifier->ModifyExtrusionStep(Context, ModdedRule);
-		}
-		
-		// Instantiate a slice per sample
-		DrawData.Insert(Data.OriginSlice, VertexPtr);
-
-		// Create a transform matrix
-		FMatrix Rotation{
-			Sample.Bitangent.GetSafeNormal(), Sample.Tangent.GetSafeNormal(), Sample.Reference.GetSafeNormal(),
-			FVector::ZeroVector
-		};
-		FTransform Transform;
-		Transform.SetComponents(Rotation.ToQuat(), Sample.Position, FVector::OneVector);
-
-		// Transform all vertices with this matrix
-		for (int32 Vertex = 0; Vertex < Data.OriginSlice.Num(); ++Vertex, ++VertexPtr)
-		{
-			DrawData.Positions[VertexPtr] = Transform.TransformPosition(
-				(DrawData.Positions[VertexPtr] * ModdedRule.Scale) + ModdedRule.Offset);
-			if (I == -1)
-				DrawData.Normals[VertexPtr] = -Sample.Tangent;
-			else if (I == ModdedRule.NumRmfSamples)
-				DrawData.Normals[VertexPtr] = Sample.Tangent;
-			else
-				DrawData.Normals[VertexPtr] = Transform.TransformVector(DrawData.Normals[VertexPtr]);
-			DrawData.Tangents[VertexPtr].TangentX = Transform.TransformVector(DrawData.Tangents[VertexPtr].TangentX);
-			// Set UVs to distance / totalDistance
-			DrawData.Uv0[VertexPtr].Y = Sample.Distance / TotalSplineDistance;
-		}
-	}
-
-	/*
-	 * Create triangles
-	 */
-	const int32 SliceCount = Data.OriginSlice.Num();
-	const int32 EdgesPerRing = SliceCount;
+	DrawData.InitVertices((RmfSampler->NumRmfSamples + 2) * Data.OriginSlice.VertexNum());
 
 	// Start and end cap
-	const uint32 NumConnectionsIndices = (Rule.NumRmfSamples + 1) * Data.OriginSlice.Num() * 6;
+	const uint32 MaxNumConnectionsIndices = (RmfSampler->NumRmfSamples + 1) * Data.OriginSlice.VertexNum() * 6;
 
-	const auto StartCap = ComputeEndCap(Data, 0, true);
-	const auto EndCap = ComputeEndCap(Data, (Rule.NumRmfSamples + 1) * Data.OriginSlice.Num(), false);
-
-	TArray<int32> Indices{};
-
-	const uint32 NumCapsIndices = StartCap.Num() + EndCap.Num();
-	Indices.Init(0, NumConnectionsIndices + NumCapsIndices);
-
-	// Insert end caps
-	Indices.Insert(StartCap, 0);
-	Indices.Insert(EndCap, StartCap.Num() + NumConnectionsIndices);
-
-	// Linking samples
-	uint32 Ptr = StartCap.Num();
-	for (uint32 SampleIdx = 0; SampleIdx < static_cast<uint32>(Rule.NumRmfSamples) + 1; ++SampleIdx)
+	bool bNoStartCap = Solver && !Solver->Collisions.IsEmpty() && Solver->Collisions[0].DistanceMin == 0.f;
+	if (bNoStartCap)
 	{
-		const uint32 CurrentRing = SampleIdx * SliceCount;
-		const uint32 NextRing = (SampleIdx + 1) * SliceCount;
+		// Skip start cap on 0
+		DrawData.InitIndices(MaxNumConnectionsIndices);
+	}
+	else
+	{
+		AddStartCap(Solver, DrawData, Rule, Data);
+		auto StartCap = ComputeEndCap(Data, 0, true);
 
-		for (int32 V = 0; V < EdgesPerRing; ++V)
-		{
-			const int32 NextV = (V + 1) % SliceCount;
+		const uint32 NumCapsIndices = 2 * StartCap.Num();
+		DrawData.InitIndices(MaxNumConnectionsIndices + NumCapsIndices);
 
-			const int32 A = CurrentRing + V;
-			const int32 B = CurrentRing + NextV;
-			const int32 C = NextRing + V;
-			const int32 D = NextRing + NextV;
-
-			Indices[Ptr++] = A;
-			Indices[Ptr++] = B;
-			Indices[Ptr++] = C;
-			Indices[Ptr++] = B;
-			Indices[Ptr++] = D;
-			Indices[Ptr++] = C;
-		}
+		// Insert end caps
+		DrawData.AppendIndices(MoveTemp(StartCap));
 	}
 
-	MeshComponent->CreateMeshSection(0, DrawData.Positions, Indices, DrawData.Normals, DrawData.Uv0, {},
+	int32 VertexPtr = bNoStartCap ? 0 : Data.OriginSlice.VertexNum();
+	FSplineToolkitRmfSample Sample{
+		.Distance = -1.f
+	};
+	bool bDontConnect = false;
+	while (AddNextSampleToMesh(Solver, DrawData, Rule, Data, Sample, VertexPtr, bDontConnect))
+	{
+		if (!bDontConnect)
+			ConnectToPreviousSample(DrawData, VertexPtr, Data);
+	}
+
+	bool bNoEndCap = Solver && !Solver->Collisions.IsEmpty() && FMath::IsNearlyEqual(
+		Solver->Collisions.Last().DistanceMax, SplineComponent->GetSplineLength(), KINDA_SMALL_NUMBER);
+	if (!bNoEndCap)
+	{
+		AddEndCap(Solver, DrawData, Rule, Data);
+
+		auto EndCap = ComputeEndCap(Data, DrawData.VertexTop() - Data.OriginSlice.VertexNum(), false);
+		DrawData.AppendIndices(MoveTemp(EndCap));
+	}
+
+	DrawData.ShrinkFit();
+
+	MeshComponent->CreateMeshSection(0, DrawData.Positions, DrawData.Indices, DrawData.Normals, DrawData.Uv0, {},
 	                                 DrawData.Tangents, true);
 
 	MeshComponent->SetMaterial(0, Rule.Material);
@@ -732,7 +844,7 @@ void USplineToolkitMeshExtruder::PostEditChangeProperty(FPropertyChangedEvent& P
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	if (Ruleset->IsValidLowLevel())
+	if (this->Ruleset->IsValidLowLevel())
 	{
 		this->Ruleset->OnShouldRegenerate.AddLambda([this]
 		{
@@ -741,7 +853,8 @@ void USplineToolkitMeshExtruder::PostEditChangeProperty(FPropertyChangedEvent& P
 		});
 		this->Ruleset->OnReapplyMaterials.AddLambda([this]
 		{
-			ReapplyMaterials();
+			if (this->bUpdateOnRulesetChange)
+				ReapplyMaterials();
 		});
 	}
 }
