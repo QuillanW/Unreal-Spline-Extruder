@@ -27,10 +27,15 @@ public:
 protected:
 	virtual void OnRegister() override;
 	
+	USplineToolkitRulesetModifierBase* GetOrCreateModifierInstance(TSubclassOf<USplineToolkitRulesetModifierBase> Class);
+	
 	void RegenerateInternal();
 	void ReapplyMaterials();
 	
 	bool bRegenerate = false;
+	
+	UPROPERTY(Transient)
+	TMap<TSubclassOf<USplineToolkitRulesetModifierBase>, USplineToolkitRulesetModifierBase*> ModifierInstanceCache;
 
 public:
 	// Called every frame

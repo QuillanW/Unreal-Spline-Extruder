@@ -2,6 +2,7 @@
 
 #include "SplineToolkitInstantiator.h"
 
+#include "SplineToolkitModifier.h"
 #include "SplineToolkitIntersectionSolver.h"
 #include "SplineToolkitRmf.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -69,6 +70,16 @@ void USplineToolkitInstantiator::OnRegister()
 	}
 }
 
+USplineToolkitRulesetModifierBase* USplineToolkitInstantiator::GetOrCreateModifierInstance(TSubclassOf<USplineToolkitRulesetModifierBase> Class)
+{
+	if (USplineToolkitRulesetModifierBase** Found = ModifierInstanceCache.Find(Class))
+	{
+		return *Found;
+	}
+	USplineToolkitRulesetModifierBase* NewInstance = NewObject<USplineToolkitRulesetModifierBase>(GetTransientPackage(), Class);
+	ModifierInstanceCache.Add(Class, NewInstance);
+	return NewInstance;
+}
 
 void USplineToolkitInstantiator::RegenerateInternal()
 {
@@ -96,8 +107,14 @@ void USplineToolkitInstantiator::RegenerateInternal()
 		// Loop over the spline at a set distance of precision. Applying the rules at each point
 		for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += fmax(Rule.StepPrecision, 1.0f))
 		{
-			// TODO: Apply modifiers
-			const auto ModdedRule = Rule;
+			FSplineToolkitStepContext Context {SplineComponent, CurrentDist};
+
+			FSplineToolkitInstantiationRule ModdedRule = Rule;
+			for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
+			{
+				if (!Modifier) continue;
+				ModdedRule = Modifier->ModifyInstantiationStep(Context, ModdedRule);
+			}
 
 			// Check if enabled (Can be changed by modifier, so checking each step)
 			if (!ModdedRule.Enabled)

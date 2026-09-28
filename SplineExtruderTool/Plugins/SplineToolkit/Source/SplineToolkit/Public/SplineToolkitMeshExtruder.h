@@ -130,6 +130,8 @@ private:
 	TArray<FSplineToolkitExtruderMeshData> OutMeshes;
 
 	void ExtractOriginSlice(UStaticMesh* InputMesh, FSplineToolkitExtruderMeshData& Data) const;
+	
+	USplineToolkitRulesetModifierBase* GetOrCreateModifierInstance(TSubclassOf<USplineToolkitRulesetModifierBase> Class);
 
 	static TArray<int32> ComputeEndCap(const FSplineToolkitExtruderMeshData& Data, int32 IndexOffset,
 	                                   bool InvertOrdering);
@@ -159,6 +161,9 @@ private:
 	void ComputeMesh(const FSplineToolkitExtrusionRule& Rule, UProceduralMeshComponent* MeshComponent,
 	                 const FSplineToolkitExtruderMeshData& Data) const;
 
+	UPROPERTY(Transient)
+	TMap<TSubclassOf<USplineToolkitRulesetModifierBase>, USplineToolkitRulesetModifierBase*> ModifierInstanceCache;
+	
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
