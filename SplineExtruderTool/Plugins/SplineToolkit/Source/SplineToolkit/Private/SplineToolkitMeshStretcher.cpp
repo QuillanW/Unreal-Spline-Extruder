@@ -91,6 +91,8 @@ void USplineToolkitMeshStretcher::RegenerateInternal()
 	for (const auto& Anchor : InstantiatorComponent->Anchors)
 		Anchors.FindOrAdd(Anchor.Type).Add(Anchor.SpawnedWorldLocation);
 	
+	if (Anchors.IsEmpty()) return;
+	
 	int32 RuleIdx = -1;
 	
 	// Loop over the rules
@@ -105,7 +107,7 @@ void USplineToolkitMeshStretcher::RegenerateInternal()
 		{
 			InstancerActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass());
 #if WITH_EDITOR
-			InstancerActor->SetActorLabel("SplineInstantiatorInstancer" + FString::FromInt(RuleIdx));
+			InstancerActor->SetActorLabel("SplineStretchInstancer" + FString::FromInt(RuleIdx));
 #endif
 			if (InstancerActor)
 			{
@@ -135,11 +137,11 @@ void USplineToolkitMeshStretcher::RegenerateInternal()
 			FVector Direction = PointB - PointA;
 			double Distance = Direction.Length();
 			double Size = Rule.Mesh->GetBoundingBox().GetSize().Y;
-			double Scale = Size / Distance;
+			double Scale = Distance / Size;
 			
 			FTransform Transform;
 			Transform.SetLocation(Center);
-			Transform.SetRotation(FRotationMatrix::MakeFromX(Direction).ToQuat());
+			Transform.SetRotation(FRotationMatrix::MakeFromY(Direction).ToQuat());
 			Transform.SetScale3D({1, Scale, 1});
 
 			if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())

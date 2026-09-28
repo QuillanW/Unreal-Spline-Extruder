@@ -244,7 +244,7 @@ void FSplineToolkitRulesetPreviewScene::UpdateSplinePreview(SplinePreview previe
 	Extruder->Ruleset = GetEditor()->GetRuleset();
 
 	auto* Stretcher = reinterpret_cast<USplineToolkitMeshStretcher*>(Spline0->AddComponentByClass(
-		USplineToolkitMeshExtruder::StaticClass(), false, FTransform::Identity, false));
+		USplineToolkitMeshStretcher::StaticClass(), false, FTransform::Identity, false));
 	Stretcher->RegisterComponent();
 	Stretcher->Ruleset = GetEditor()->GetRuleset();
 
