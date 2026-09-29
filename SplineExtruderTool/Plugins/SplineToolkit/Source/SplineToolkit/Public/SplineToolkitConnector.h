@@ -35,13 +35,30 @@ struct FSplineConnection
 		return bFromEnd == bToEnd;
 	}
 	
-	FSplineConnection GetOpposingConnection(USplineComponent* Self)
+	FSplineConnection GetOpposingConnection(USplineComponent* Self) const
 	{
 		FSplineConnection Con;
 		Con.ToSpline = Self;
-		
+		Con.bFromEnd = bToEnd;
+		Con.bToEnd = bFromEnd;
+		Con.bEnabled = bEnabled;
 		return Con;
 	}
+	
+	bool IsOpposingConnection(USplineComponent* Self, const FSplineConnection& Other) const
+	{
+		return Self == Other.ToSpline && 
+		bToEnd == Other.bFromEnd &&
+		bFromEnd == Other.bToEnd;
+	}
+	
+	bool operator==(const FSplineConnection& Other) const
+	{
+		return ToSpline == Other.ToSpline && 
+			bToEnd == Other.bToEnd &&
+				bFromEnd == Other.bFromEnd;
+	}
+	
 };
 
 
@@ -79,7 +96,7 @@ public:
 	
 	// Whether multiple connections are allowed to be enabled in one direction
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
-	bool bAutoUpdate = false;
+	bool bAutoUpdate = true;
 
 	// A list of the connections to this spline
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
@@ -88,4 +105,7 @@ public:
 	// The spline that is attached to this object
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	USplineComponent* SplineComponent = nullptr;
+	
+private:
+	bool bUpdateActive = false;
 };

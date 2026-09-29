@@ -17,13 +17,13 @@ void USplineToolkitConnector::OnRegister()
 			return;
 		}
 		SplineComponent = Owner->GetComponentByClass<USplineComponent>();
-		SplineComponent->GetOnSplineChanged().AddLambda([this] { if (bAutoUpdate) ReAttach(); });
+		SplineComponent->GetOnSplineChanged().AddLambda([this] { if (bAutoUpdate & !bUpdateActive) ReAttach(); });
 	}
 }
 
 void USplineToolkitConnector::Attach(const FSplineConnection& Connection)
 {
-	Connections.Add(Connection);
+	Connections.AddUnique(Connection);
 	Validate();
 }
 
@@ -47,7 +47,7 @@ void USplineToolkitConnector::AutoAttach(USplineComponent* Target)
 	float DistD = (ThisEnd - OtherEnd).Length();
 	if (DistD < DistC) Con.bToEnd = true;
 	
-	Connections.Add(Con);
+	Connections.AddUnique(Con);
 	ReAttach();
 }
 
@@ -101,7 +101,7 @@ void USplineToolkitConnector::FullAutoAttach()
 	
 	if (ClosestDistance >= 10000.0f) return;
 	
-	Connections.Add(ClosestCon);
+	Connections.AddUnique(ClosestCon);
 	ReAttach();
 }
 
@@ -129,6 +129,23 @@ void USplineToolkitConnector::Validate()
 	{
 		if (!IsValid(Connections[i].ToSpline))
 			Connections.RemoveAt(i);
+	}
+	
+	// Check that the other spline has an opposing connection to this one
+	for (const auto& Con : Connections)
+	{
+		USplineToolkitConnector* Other = Con.ToSpline->GetOwner()->GetComponentByClass<USplineToolkitConnector>();
+		
+		bool found = false;
+		for (const auto& OtherCon : Other->Connections)
+			if (OtherCon.IsOpposingConnection(SplineComponent, OtherCon))
+			{
+				found = true;
+				break;
+			}
+		
+		if (found) continue;
+		Other->Connections.AddUnique(Con.GetOpposingConnection(SplineComponent));
 	}
 		
 	// Check if at most one connection is enabled
@@ -178,9 +195,11 @@ void USplineToolkitConnector::ReAttach()
 		auto Rot = FRotationMatrix::MakeFromX(Tan).Rotator();
 		Rot.Roll = Con.IsInvertedConnection() ? -Roll : Roll;
 		
+		Con.ToSpline->GetOwner()->GetComponentByClass<USplineToolkitConnector>()->bUpdateActive = true;
 		Con.ToSpline->SetLocationAtSplinePoint(PointIdx, Loc, ESplineCoordinateSpace::World);
 		Con.ToSpline->SetRotationAtSplinePoint(PointIdx, Rot, ESplineCoordinateSpace::World);
 		Con.ToSpline->SetTangentAtSplinePoint(PointIdx, Tan, ESplineCoordinateSpace::World);
+		Con.ToSpline->GetOwner()->GetComponentByClass<USplineToolkitConnector>()->bUpdateActive = false;
 	}
 }
 
