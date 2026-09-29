@@ -25,6 +25,15 @@ public:
 	FString Type;
 };
 
+// Rule type
+UENUM(BlueprintType)
+enum class ESplineToolkitRuleType : uint8
+{
+	INSTANTIATION UMETA(DisplayName = "Intersection"),
+	EXTRUSION UMETA(DisplayName = "Extrusion"),
+	STRETCH UMETA(DisplayName = "Stretch"),
+};
+
 /// Modifier threshold type
 UENUM(BlueprintType)
 enum class EModifierThresholdOperator : uint8 {
@@ -158,6 +167,98 @@ public:
 };
 
 // ===============================
+//         FILLING RULES
+// ===============================
+
+// The type of anchor to use when filling
+UENUM(BlueprintType)
+enum class EFillAnchorType : uint8
+{
+	CUTOUT_START UMETA(DisplayName = "Start of cutout region"),
+	CUTOUT_END UMETA(DisplayName = "End of cutout region"),
+	INTERSECT_RULE UMETA(DisplayName = "Intersection with a rule"),
+};
+
+// Parameters for the start and end config for the connect rule
+USTRUCT(BlueprintType)
+struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRuleParams
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EFillAnchorType Type = EFillAnchorType::CUTOUT_START;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	uint8 SplineIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "Type==EFillAnchorType::INTERSECT_RULE", EditConditionHides))
+	ESplineToolkitRuleType RuleType = ESplineToolkitRuleType::INSTANTIATION;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "Type==EFillAnchorType::INTERSECT_RULE", EditConditionHides))
+	uint8 RuleIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float OffsetDistance = 0.f;
+};
+
+// Rules for connecting a rule between two points
+USTRUCT(BlueprintType)
+struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRule
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	uint8 SplineIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	ESplineToolkitRuleType RuleType = ESplineToolkitRuleType::INSTANTIATION;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	uint8 RuleIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FSplineToolkitFillingConnectRuleParams Start{};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FSplineToolkitFillingConnectRuleParams End{};
+};
+
+// Placement rule variant for filling
+USTRUCT(BlueprintType)
+struct FSplineToolkitFillingPlacementRule
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UStaticMesh* Mesh = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EFillAnchorType Type = EFillAnchorType::CUTOUT_START;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector Offset = FVector::ZeroVector;
+};
+
+// Rules for filling intersection areas
+USTRUCT(BlueprintType)
+struct SPLINETOOLKIT_API FSplineToolkitFillingRules
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float AngleMin = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float AngleMax = 180.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FSplineToolkitFillingConnectRule> ConnectRules = {};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FSplineToolkitFillingPlacementRule> PlacementRules = {};
+};
+
+// ===============================
 //            RULESET
 // ===============================
 
@@ -178,6 +279,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FSplineToolkitPlacementRule> PlacementRules = {};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FSplineToolkitFillingRules> FillingRules = {};
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty( FPropertyChangedEvent & PropertyChangedEvent ) override;
