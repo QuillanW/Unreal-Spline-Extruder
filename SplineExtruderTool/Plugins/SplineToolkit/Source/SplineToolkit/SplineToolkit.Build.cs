@@ -41,6 +41,7 @@ public class SplineToolkit : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"Chaos",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);
