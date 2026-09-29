@@ -207,34 +207,40 @@ void FSplineToolkitRulesetPreviewScene::UpdateSplinePreview(SplinePreview previe
 	PreviewActors.Add(Spline0);
 
 	// Create the spline
-	auto* spline = reinterpret_cast<USplineComponent*>(Spline0->AddComponentByClass(
+	auto* Spline = reinterpret_cast<USplineComponent*>(Spline0->AddComponentByClass(
 		USplineComponent::StaticClass(), false, FTransform::Identity, false));
-	spline->RegisterComponent();
+	Spline->RegisterComponent();
 
 	// Set points and tangents
 	switch (preview)
 	{
 	case SplinePreview::Track:
-		SetSplinePointsWithTangents(spline, TrackPoints, TrackTangents);
+		SetSplinePointsWithTangents(Spline, TrackPoints, TrackTangents);
 		break;
 	case SplinePreview::Loop:
-		SetSplinePointsWithTangents(spline, LoopPoints, LoopTangents);
+		SetSplinePointsWithTangents(Spline, LoopPoints, LoopTangents);
 		break;
 	case SplinePreview::SBend:
-		SetSplinePointsWithTangents(spline, SBendPoints, SBendTangents);
+		SetSplinePointsWithTangents(Spline, SBendPoints, SBendTangents);
 		break;
 	}
 
-	// Add instantiator and set the ruleset
-	auto* instantiator = reinterpret_cast<USplineToolkitInstantiator*>(Spline0->AddComponentByClass(
-		USplineToolkitInstantiator::StaticClass(), false, FTransform::Identity, false));
-	instantiator->RegisterComponent();
-	instantiator->Ruleset = GetEditor()->GetRuleset();
+	// Add RMF sampler
+	auto* RmfSampler = reinterpret_cast<USplineToolkitRmfSampler*>(Spline0->AddComponentByClass(
+		USplineToolkitRmfSampler::StaticClass(), false, FTransform::Identity, false));
+	RmfSampler->RegisterComponent();
 
-	auto* extruder = reinterpret_cast<USplineToolkitMeshExtruder*>(Spline0->AddComponentByClass(
+	// Add instantiator and set the ruleset
+	auto* Instantiator = reinterpret_cast<USplineToolkitInstantiator*>(Spline0->AddComponentByClass(
+		USplineToolkitInstantiator::StaticClass(), false, FTransform::Identity, false));
+	Instantiator->RegisterComponent();
+	Instantiator->Ruleset = GetEditor()->GetRuleset();
+
+	// Add extruder and set the ruleset
+	auto* Extruder = reinterpret_cast<USplineToolkitMeshExtruder*>(Spline0->AddComponentByClass(
 		USplineToolkitMeshExtruder::StaticClass(), false, FTransform::Identity, false));
-	extruder->RegisterComponent();
-	extruder->Ruleset = GetEditor()->GetRuleset();
+	Extruder->RegisterComponent();
+	Extruder->Ruleset = GetEditor()->GetRuleset();
 
 	// TODO: Add the other components
 
@@ -249,9 +255,12 @@ void FSplineToolkitRulesetPreviewScene::UpdatePreview()
 	for (auto Actor : PreviewActors)
 	{
 		if (!Actor.IsResolved() || !Actor->IsValidLowLevel()) continue;
+		if (auto* RmfSampler = Actor->GetComponentByClass<USplineToolkitRmfSampler>())
+			RmfSampler->Regenerate();
+
 		if (auto* Instantiator = Actor->GetComponentByClass<USplineToolkitInstantiator>())
 			Instantiator->Regenerate();
-			
+
 		if (auto* Extruder = Actor->GetComponentByClass<USplineToolkitMeshExtruder>())
 			Extruder->Regenerate();
 		// TODO: Add the other components
@@ -259,8 +268,8 @@ void FSplineToolkitRulesetPreviewScene::UpdatePreview()
 }
 
 
-void FSplineToolkitRulesetPreviewScene::SetPreviewSpline(SplinePreview preview)
+void FSplineToolkitRulesetPreviewScene::SetPreviewSpline(const SplinePreview Preview)
 {
-	CurrentPreview = preview;
-	UpdateSplinePreview(preview);
+	CurrentPreview = Preview;
+	UpdateSplinePreview(Preview);
 }
