@@ -102,7 +102,7 @@ void USplineToolkitConnector::FullAutoAttach()
 	if (ClosestDistance >= 10000.0f) return;
 	
 	Connections.AddUnique(ClosestCon);
-	ReAttach();
+	ReAttach({}, ClosestCon.bFromEnd ? ESplineEnd::End : ESplineEnd::Start);
 }
 
 void USplineToolkitConnector::Validate()
@@ -128,6 +128,8 @@ void USplineToolkitConnector::Validate()
 	for (int i = Connections.Num() - 1; i >= 0; --i)
 	{
 		if (!IsValid(Connections[i].ToSpline))
+			Connections.RemoveAt(i);
+		if (Connections[i].ToSpline == SplineComponent)
 			Connections.RemoveAt(i);
 	}
 	
@@ -172,8 +174,10 @@ void USplineToolkitConnector::Validate()
 	}
 }
 
-void USplineToolkitConnector::ReAttach()
+void USplineToolkitConnector::ReAttach(TArray<USplineComponent*> Seen, const ESplineEnd End)
 {
+	if (End == ESplineEnd::None) return;
+	
 	Validate();
 	
 	FVector StartLoc = SplineComponent->GetLocationAtTime(0, ESplineCoordinateSpace::World);
@@ -186,7 +190,15 @@ void USplineToolkitConnector::ReAttach()
 	
 	for (auto& Con : Connections)
 	{
-		const auto PointIdx = Con.bToEnd ? Con.ToSpline->GetNumberOfSplinePoints() : 0;
+		if (Seen.Contains(Con.ToSpline)) continue;
+		Seen.AddUnique(SplineComponent);
+		if (End != ESplineEnd::Both)
+		{
+			if (Con.bFromEnd && End != ESplineEnd::End) continue;
+			if (!Con.bFromEnd && End != ESplineEnd::Start) continue;
+		}
+		
+		const auto PointIdx = Con.bToEnd ? Con.ToSpline->GetNumberOfSplinePoints() - 1 : 0;
 		const auto Loc = Con.bFromEnd ? EndLoc : StartLoc;
 		const auto Roll = Con.bFromEnd ? EndRoll : StartRoll;
 		auto Tan = Con.bFromEnd ? EndTan : StartTan;
@@ -195,11 +207,14 @@ void USplineToolkitConnector::ReAttach()
 		auto Rot = FRotationMatrix::MakeFromX(Tan).Rotator();
 		Rot.Roll = Con.IsInvertedConnection() ? -Roll : Roll;
 		
-		Con.ToSpline->GetOwner()->GetComponentByClass<USplineToolkitConnector>()->bUpdateActive = true;
+		auto ToConnector = Con.ToSpline->GetOwner()->GetComponentByClass<USplineToolkitConnector>();
+		
+		ToConnector->bUpdateActive = true;
 		Con.ToSpline->SetLocationAtSplinePoint(PointIdx, Loc, ESplineCoordinateSpace::World);
 		Con.ToSpline->SetRotationAtSplinePoint(PointIdx, Rot, ESplineCoordinateSpace::World);
 		Con.ToSpline->SetTangentAtSplinePoint(PointIdx, Tan, ESplineCoordinateSpace::World);
-		Con.ToSpline->GetOwner()->GetComponentByClass<USplineToolkitConnector>()->bUpdateActive = false;
+		ToConnector->bUpdateActive = false;
+		ToConnector->ReAttach(Seen, Con.bToEnd ? ESplineEnd::End : ESplineEnd::Start);
 	}
 }
 

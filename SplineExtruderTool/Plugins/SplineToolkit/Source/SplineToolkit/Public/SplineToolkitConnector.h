@@ -7,6 +7,14 @@
 #include "Components/SplineComponent.h"
 #include "SplineToolkitConnector.generated.h"
 
+UENUM()
+enum class ESplineEnd
+{
+	None,
+	Start,
+	End,
+	Both
+};
 
 USTRUCT(BlueprintType)
 struct FSplineConnection
@@ -87,8 +95,8 @@ public:
 	void Validate();
 	
 	// Update splines attached to this one to be re aligned
-	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit")
-	void ReAttach();
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit", meta = (CPP_Default_Seen = ""))
+	void ReAttach(TArray<USplineComponent*> Seen = TArray<USplineComponent*>(), ESplineEnd End = ESplineEnd::Both);
 
 	// Whether multiple connections are allowed to be enabled in one direction
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
