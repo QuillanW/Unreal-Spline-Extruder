@@ -52,7 +52,7 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	TObjectPtr<USplineComponent> SplineComponent = {};
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	UPROPERTY(BlueprintReadOnly, Category = "Spline Toolkit")
 	TObjectPtr<USplineToolkitInstantiator> InstantiatorComponent = {};
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")

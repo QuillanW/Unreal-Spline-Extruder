@@ -47,7 +47,7 @@ void USplineToolkitMeshStretcher::OnRegister()
 	{
 		if (!Owner->FindComponentByClass<USplineComponent>())
 		{
-			UE_LOG(LogTemp, Error, TEXT("Instantiator requires USplineComponent"));
+			UE_LOG(LogTemp, Error, TEXT("Stretcher requires USplineComponent"));
 			return;
 		}
 		SplineComponent = Owner->GetComponentByClass<USplineComponent>();
@@ -55,13 +55,13 @@ void USplineToolkitMeshStretcher::OnRegister()
 		
 		if (!Owner->FindComponentByClass<USplineToolkitInstantiator>())
 		{
-			UE_LOG(LogTemp, Error, TEXT("Instantiator requires USplineToolkitInstantiator"));
+			UE_LOG(LogTemp, Error, TEXT("Stretcher requires USplineToolkitInstantiator"));
 			return;
 		}
 		InstantiatorComponent = Owner->GetComponentByClass<USplineToolkitInstantiator>();
 	}
 
-	if (Ruleset->IsValidLowLevel())
+	if (IsValid(Ruleset))
 	{
 		Ruleset->OnShouldRegenerate.AddLambda([this]
 		{
@@ -78,13 +78,22 @@ void USplineToolkitMeshStretcher::OnRegister()
 void USplineToolkitMeshStretcher::RegenerateInternal()
 {
 	bRegenerate = false;
-
+	
+	if (!this->Ruleset->IsValidLowLevelFast())
+	{
+		UE_LOG(LogTemp, Error, TEXT("No ruleset specified"));
+		return;
+	}
+	
+	if (!this->InstantiatorComponent->IsValidLowLevelFast())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Stretcher requires USplineToolkitInstantiator"));
+		return;
+	}
+	
 	// Easier to just clear all and regenerate since the components are small and quick to load 
 	// And I'm kinda lazy while writing this at midnight...
 	Clear();
-
-	if (!this->Ruleset->IsValidLowLevelFast())
-		return;
 	
 	// Get all anchors from the instantiator
 	TMap<FName, TArray<FVector>> Anchors;
@@ -147,7 +156,7 @@ void USplineToolkitMeshStretcher::RegenerateInternal()
 			if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
 			{
 				InstancerComp->SetStaticMesh(Rule.Mesh);
-				InstancerComp->AddInstance(Transform, true);
+				InstancerComp->AddInstance(Transform, false);
 			}
 		}
 		
@@ -209,7 +218,7 @@ void USplineToolkitMeshStretcher::PostEditChangeProperty(FPropertyChangedEvent& 
 	if (AutoUpdate)
 		Regenerate();
 
-	if (Ruleset->IsValidLowLevel())
+	if (IsValid(Ruleset))
 	{
 		Ruleset->OnShouldRegenerate.AddLambda([this]
 		{

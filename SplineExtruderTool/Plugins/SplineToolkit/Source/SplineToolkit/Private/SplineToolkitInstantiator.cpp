@@ -63,7 +63,7 @@ void USplineToolkitInstantiator::OnRegister()
 		SplineComponent->GetOnSplineChanged().AddLambda([this] { if (AutoUpdate) Regenerate(); });
 	}
 
-	if (Ruleset->IsValidLowLevel())
+	if (IsValid(Ruleset))
 	{
 		Ruleset->OnShouldRegenerate.AddLambda([this]
 		{
