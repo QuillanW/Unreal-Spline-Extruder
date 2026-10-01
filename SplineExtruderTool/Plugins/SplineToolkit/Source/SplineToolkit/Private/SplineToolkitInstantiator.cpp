@@ -176,9 +176,12 @@ void USplineToolkitInstantiator::RegenerateInternal()
 					Sample.Reference.GetSafeNormal(),
 					FVector::ZeroVector
 				};
+				
+				FQuat FinalRotation = Rotation.ToQuat() * ModdedRule.RotationOffset.Quaternion();
+				
 				FTransform Transform;
-				FVector FinalPosition = Sample.Position + Rotation.TransformPosition(Rule.Offset);
-				Transform.SetComponents(Rotation.ToQuat().GetNormalized(), FinalPosition, Rule.Scale);
+				FVector FinalPosition = Sample.Position + Rotation.TransformPosition(ModdedRule.Offset);
+				Transform.SetComponents(FinalRotation.GetNormalized(), FinalPosition, ModdedRule.Scale);
 
 				if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
 				{
