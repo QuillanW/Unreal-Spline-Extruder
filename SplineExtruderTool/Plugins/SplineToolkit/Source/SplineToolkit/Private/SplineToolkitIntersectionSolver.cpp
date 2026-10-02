@@ -130,13 +130,19 @@ static FVector SampleArriveTangentOffsetLocation(USplineComponent* Spline, int32
 }
 
 
-static FVector SampleOffsetLocation(USplineComponent* Spline, float Distance, const FVector& Offset)
+static FVector SampleOffsetLocation(USplineToolkitRmfSampler* Sampler, float Distance, const FVector& Offset)
 {
-	const FVector Base = Spline->GetWorldLocationAtDistanceAlongSpline(Distance);
+	auto Sample = Sampler->GetSampleAtDistance(Distance);
+	Sample.Position += Sampler->GetOwner()->GetActorLocation();
 	if (Offset.IsNearlyZero())
-		return Base;
-	const FQuat Frame = Spline->GetQuaternionAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
-	return Base + Frame.RotateVector(Offset);
+		return Sample.Position;
+	const FQuat Frame = FMatrix{
+		Sample.Bitangent.GetSafeNormal(),
+		Sample.Tangent.GetSafeNormal(),
+		Sample.Reference.GetSafeNormal(),
+		FVector::ZeroVector
+	}.ToQuat();
+	return Sample.Position + Frame.RotateVector(Offset);
 }
 
 
@@ -147,6 +153,12 @@ TOptional<TArray<FSplineToolkitSplineIntersection>> USplineToolkitIntersectionSo
 	const FSplineToolkitExtrusionRule& RuleB)
 {
 	if (!SplineA || !SplineB || !RuleA.bCheckIntersections || !RuleB.bCheckIntersections)
+		return NullOpt;
+
+	auto* SamplerA = SplineA->GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
+	auto* SamplerB = SplineB->GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
+
+	if (!SamplerA || !SamplerB)
 		return NullOpt;
 
 	const float RadiusA = ComputeApproxRadius(RuleA);
@@ -250,12 +262,12 @@ TOptional<TArray<FSplineToolkitSplineIntersection>> USplineToolkitIntersectionSo
 		{
 			const float D = FMath::Lerp(DistStartA, DistEndA, i / SamplesF);
 			DistA.Add(D);
-			PolyA.Add(SampleOffsetLocation(SplineA, D, RuleA.Offset));
+			PolyA.Add(SampleOffsetLocation(SamplerA, D, RuleA.Offset));
 		}
 		for (int32 j = 0; j <= Samples; ++j)
 		{
 			const float D = FMath::Lerp(DistStartB, DistEndB, j / SamplesF);
-			PolyB.Add(SampleOffsetLocation(SplineB, D, RuleB.Offset));
+			PolyB.Add(SampleOffsetLocation(SamplerB, D, RuleB.Offset));
 		}
 
 		bool bFoundOne = false;
@@ -314,21 +326,32 @@ TOptional<TArray<FSplineToolkitSplineIntersection>> USplineToolkitIntersectionSo
 	{
 		if (LastAdded == -1 || Hit.HitSample - LastAdded > 1)
 		{
-			Result.Emplace_GetRef().DistanceMin = Hit.Distances.X;
-			Result.Last().Other = SplineB;
-			Result.Last().OtherSegment = Hit.HitSegment;
+			auto& Intersection = Result.Emplace_GetRef();
+			Intersection.DistanceMin = Hit.Distances.X;
+			Intersection.Other = SplineB;
+			Intersection.OtherSegment = Hit.HitSegment;
 		}
 
 		auto& Intersection = Result.Last();
 
-		Intersection.Midpoint += Hit.Midpoint;
-		++Intersection.SamplesIncluded;
+		const float Sigma2 = CombinedRadiusSq * 0.25f;
+		const float Weight = FMath::Exp(-Hit.DistanceSquared / (2.f * Sigma2));
+		Intersection.Midpoint += Weight * Hit.Midpoint;
+		Intersection.TotalWeight += Weight;
 		Intersection.DistanceMax = Hit.Distances.Y;
 		LastAdded = Hit.HitSample;
 	}
 
 	for (auto& Intersection : Result)
-		Intersection.Midpoint /= Intersection.SamplesIncluded;
+	{
+		Intersection.Midpoint /= Intersection.TotalWeight;
+		// Calculate the angle
+		FVector TangentA = this->SplineComponent->FindTangentClosestToWorldLocation(
+			Intersection.Midpoint, ESplineCoordinateSpace::World).GetSafeNormal();
+		FVector TangentB = Intersection.Other->FindTangentClosestToWorldLocation(
+			Intersection.Midpoint, ESplineCoordinateSpace::World).GetSafeNormal();
+		Intersection.AbsoluteAngleDifference = FMath::Abs(FMath::RadiansToDegrees(FMath::Acos(TangentA.Dot(TangentB))));
+	}
 
 	return Result;
 }
@@ -386,7 +409,7 @@ void USplineToolkitIntersectionSolver::SolveCollisionsFor(const USplineToolkitIn
 		return;
 	}
 
-	for (TObjectIterator<USplineToolkitMeshExtruder> It; It; ++It)
+	for (TObjectIterator<USplineToolkitRmfSampler> It; It; ++It)
 	{
 		auto* Comp = *It;
 		if (!IsValid(Comp) || Comp->GetWorld() != GetWorld() || Comp->GetOwner() == GetOwner())

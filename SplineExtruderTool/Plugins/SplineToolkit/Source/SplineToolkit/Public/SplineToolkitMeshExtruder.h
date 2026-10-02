@@ -118,6 +118,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	USplineComponent* SplineComponent = nullptr;
 
+	// Only used internally
+	bool bIgnoreIntersectCutouts = false;
+
 private:
 
 	void RegenerateInternal();

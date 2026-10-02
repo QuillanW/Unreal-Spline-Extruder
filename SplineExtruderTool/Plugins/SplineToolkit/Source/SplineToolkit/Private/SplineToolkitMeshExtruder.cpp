@@ -379,6 +379,7 @@ void USplineToolkitMeshExtruder::ExtractOriginSlice(UStaticMesh* InputMesh, FSpl
 	Data.OriginSlice = MoveTemp(SortedData);
 }
 
+
 USplineToolkitRulesetModifierBase* USplineToolkitMeshExtruder::GetOrCreateModifierInstance(
 	TSubclassOf<USplineToolkitRulesetModifierBase> Class)
 {
@@ -386,7 +387,8 @@ USplineToolkitRulesetModifierBase* USplineToolkitMeshExtruder::GetOrCreateModifi
 	{
 		return *Found;
 	}
-	USplineToolkitRulesetModifierBase* NewInstance = NewObject<USplineToolkitRulesetModifierBase>(GetTransientPackage(), Class);
+	USplineToolkitRulesetModifierBase* NewInstance = NewObject<USplineToolkitRulesetModifierBase>(
+		GetTransientPackage(), Class);
 	ModifierInstanceCache.Add(Class, NewInstance);
 	return NewInstance;
 }
@@ -697,14 +699,14 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 
 	const float TotalSplineDistance = RmfSampler->Samples.Last().Distance;
 
-	FSplineToolkitStepContext Context {SplineComponent, OutRmfSample.Distance};
+	FSplineToolkitStepContext Context{SplineComponent, OutRmfSample.Distance};
 	FSplineToolkitExtrusionRule ModdedRule = Rule;
 	for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
 	{
 		if (!Modifier) continue;
 		ModdedRule = Modifier->ModifyExtrusionStep(Context, ModdedRule);
 	}
-	
+
 	// Instantiate a slice per sample
 	OutVertexPtr = DrawData.VertexTop();
 	DrawData.InsertVertices(Data.OriginSlice, OutVertexPtr);
@@ -728,7 +730,8 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 	for (; OutVertexPtr < IterEnd; ++OutVertexPtr)
 	{
 		DrawData.Positions[OutVertexPtr] = Transform.TransformPosition(
-			(DrawData.Positions[OutVertexPtr] * FVector{ModdedRule.Scale.X, 1.f, ModdedRule.Scale.Y}) + ModdedRule.Offset);
+			(DrawData.Positions[OutVertexPtr] * FVector{ModdedRule.Scale.X, 1.f, ModdedRule.Scale.Y}) + ModdedRule.
+			Offset);
 		DrawData.Normals[OutVertexPtr] = Transform.TransformVector(DrawData.Normals[OutVertexPtr]);
 		DrawData.Tangents[OutVertexPtr].TangentX = Transform.TransformVector(DrawData.Tangents[OutVertexPtr].TangentX);
 		// Set UVs to distance / totalDistance
@@ -779,7 +782,11 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
                                              UProceduralMeshComponent* MeshComponent,
                                              const FSplineToolkitExtruderMeshData& Data) const
 {
-	auto* Solver = GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
+	// A nullptr solver means it just does not take it into account
+	auto* Solver = (this->bIgnoreIntersectCutouts)
+		               ? nullptr
+		               : GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
+
 	auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
 
 	if (!RmfSampler)
