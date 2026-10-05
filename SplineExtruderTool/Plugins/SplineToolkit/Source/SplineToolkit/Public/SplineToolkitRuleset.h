@@ -78,7 +78,7 @@ public:
 	TObjectPtr<class UMaterialInterface> OverlayMaterial;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float StepPrecision = 1.0f;
+	float StepPrecision = 10.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool Enabled = true;
