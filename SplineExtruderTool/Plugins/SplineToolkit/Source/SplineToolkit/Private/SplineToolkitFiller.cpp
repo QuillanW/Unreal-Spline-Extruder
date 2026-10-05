@@ -9,7 +9,7 @@
 #include "SplineToolkitModifier.h"
 
 int32 GSplineToolkitShowFillIntersections = 0;
-static FAutoConsoleVariableRef CVarShowIntersectionMidpoints(
+static FAutoConsoleVariableRef CVarShowFillIntersections(
 	TEXT("stk.IntersectionFiller.ShowIntersections"),
 	GSplineToolkitShowFillIntersections,
 	TEXT(
@@ -225,6 +225,7 @@ TArray<USplineToolkitFiller::FCollisionPoint> USplineToolkitFiller::DetermineCol
 				{
 					FVector Midpoint;
 					float DistanceSquared;
+					int32 HitSample;
 				};
 				TArray<FHitInfo> OutHits{};
 
@@ -251,29 +252,43 @@ TArray<USplineToolkitFiller::FCollisionPoint> USplineToolkitFiller::DetermineCol
 							const FVector MidPoint = FMath::Lerp(ClosestOnA, ClosestOnB, 0.5f);
 							OutHits.Add(FHitInfo{
 								.Midpoint = MidPoint,
-								.DistanceSquared = DistSq
+								.DistanceSquared = DistSq,
+								.HitSample = SampleA,
 							});
 						}
 					}
 				}
-				FVector Midpoint = FVector::ZeroVector;
-				float TotalWeight = 0.f;
+
+				if (OutHits.IsEmpty())
+					continue;
+
+				OutHits.Sort([](const FHitInfo& A, const FHitInfo& B)
+				{
+					return A.HitSample < B.HitSample;
+				});
+
+				int32 LastAdded = -1;
 				for (const auto& Hit : OutHits)
 				{
+					if (LastAdded == -1 || Hit.HitSample - LastAdded > 1)
+					{
+						auto& Collision = Result.Emplace_GetRef();
+						Collision.SplineA = PolyA.Spline;
+						Collision.RuleTypeA = PolyA.RuleType;
+						Collision.RuleIndexA = PolyA.RuleIndex;
+						Collision.SplineB = PolyB.Spline;
+						Collision.RuleTypeB = PolyB.RuleType;
+						Collision.RuleIndexB = PolyB.RuleIndex;
+					}
+
+					auto& Collision = Result.Last();
+
 					const float Sigma2 = 25.f;
 					const float Weight = FMath::Exp(-Hit.DistanceSquared / (2.f * Sigma2));
-					Midpoint += Weight * Hit.Midpoint;
-					TotalWeight += Weight;
+					Collision.Midpoint += Weight * Hit.Midpoint;
+					Collision.TotalWeight += Weight;
+					LastAdded = Hit.HitSample;
 				}
-				Result.Add(FCollisionPoint{
-					.Midpoint = Midpoint / TotalWeight,
-					.SplineA = PolyA.Spline,
-					.RuleTypeA = PolyA.RuleType,
-					.RuleIndexA = PolyA.RuleIndex,
-					.SplineB = PolyB.Spline,
-					.RuleTypeB = PolyB.RuleType,
-					.RuleIndexB = PolyB.RuleIndex,
-				});
 			}
 		}
 	};
@@ -311,6 +326,9 @@ TArray<USplineToolkitFiller::FCollisionPoint> USplineToolkitFiller::DetermineCol
 	LoopRules(*IntersectionB, Intersection.Other);
 
 	CollidePolylines(PolyLines);
+
+	for (auto& Collision : Result)
+		Collision.Midpoint /= Collision.TotalWeight;
 
 	return Result;
 }

@@ -51,6 +51,7 @@ private:
 	struct FCollisionPoint
 	{
 		FVector Midpoint;
+		float TotalWeight;
 
 		USplineComponent* SplineA;
 		ESplineToolkitRuleType RuleTypeA = ESplineToolkitRuleType::INSTANTIATION;

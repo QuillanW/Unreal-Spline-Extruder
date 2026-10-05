@@ -25,6 +25,7 @@ USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitAnchor
 {
 public:
+
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -33,6 +34,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FString Type;
 };
+
 
 // Rule type
 UENUM(BlueprintType)
@@ -43,6 +45,7 @@ enum class ESplineToolkitRuleType : uint8
 	STRETCH UMETA(DisplayName = "Stretch"),
 };
 
+
 // ===============================
 //             RULES
 // ===============================
@@ -52,6 +55,7 @@ USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitInstantiationRule
 {
 public:
+
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -62,31 +66,33 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TObjectPtr<class UMaterialInterface> OverlayMaterial;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float StepPrecision = 1.0f;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool Enabled = true;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float Spacing = 1.0f;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector Offset = FVector::ZeroVector;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector Scale = FVector::OneVector;
-	
+
 	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
 	TArray<TObjectPtr<USplineToolkitRulesetModifierBase>> Modifiers;
 };
+
 
 /// Extrusion rule for its matching component
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitExtrusionRule
 {
 public:
+
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -116,11 +122,13 @@ public:
 	bool operator==(const FSplineToolkitExtrusionRule&) const = default;
 };
 
+
 /// Stretching rule for its matching component
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitStretchRule
 {
 public:
+
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -136,16 +144,19 @@ public:
 	TArray<TObjectPtr<USplineToolkitRulesetModifierBase>> Modifiers;
 };
 
+
 /// Placement rule for its matching component
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitPlacementRule
 {
 public:
+
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UStaticMesh* Mesh = nullptr;
 };
+
 
 // ===============================
 //         FILLING RULES
@@ -160,6 +171,7 @@ enum class EFillAnchorType : uint8
 	INTERSECT_RULE UMETA(DisplayName = "Intersection with a rule"),
 };
 
+
 // Parameters for the start and end config for the connect rule
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRuleParams
@@ -172,15 +184,23 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRuleParams
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	uint8 SplineIndex = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "Type==EFillAnchorType::INTERSECT_RULE", EditConditionHides))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (EditCondition = "Type == EFillAnchorType::INTERSECT_RULE", EditConditionHides))
 	ESplineToolkitRuleType RuleType = ESplineToolkitRuleType::INSTANTIATION;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "Type==EFillAnchorType::INTERSECT_RULE", EditConditionHides))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (EditCondition = "Type == EFillAnchorType::INTERSECT_RULE", EditConditionHides))
 	uint8 RuleIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (EditCondition = "Type == EFillAnchorType::INTERSECT_RULE", EditConditionHides, ToolTip =
+			"Counts from the closest intersection point if there are multiple."))
+	uint8 IntersectionIndex = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float OffsetDistance = 0.f;
 };
+
 
 // Rules for connecting a rule between two points
 USTRUCT(BlueprintType)
@@ -204,6 +224,7 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRule
 	FSplineToolkitFillingConnectRuleParams End{};
 };
 
+
 // Placement rule variant for filling
 USTRUCT(BlueprintType)
 struct FSplineToolkitFillingPlacementRule
@@ -220,6 +241,7 @@ struct FSplineToolkitFillingPlacementRule
 	FVector Offset = FVector::ZeroVector;
 };
 
+
 // Rules for filling intersection areas
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitFillingRules
@@ -232,12 +254,17 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingRules
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float AngleMax = 180.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (ToolTip = "Set to anything other than -1 to filter only when any rule overlaps a certain amount of times"))
+	int32 IntersectCount = -1;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FSplineToolkitFillingConnectRule> ConnectRules = {};
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FSplineToolkitFillingPlacementRule> PlacementRules = {};
 };
+
 
 // ===============================
 //            RULESET
@@ -249,6 +276,7 @@ class SPLINETOOLKIT_API USplineToolkitRuleset : public UPrimaryDataAsset
 	GENERATED_BODY()
 
 public:
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FSplineToolkitInstantiationRule> InstantiationRules = {};
 
@@ -265,15 +293,20 @@ public:
 	TArray<FSplineToolkitFillingRules> FillingRules = {};
 
 #if WITH_EDITOR
-	virtual void PostEditChangeProperty( FPropertyChangedEvent & PropertyChangedEvent ) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
-	DECLARE_EVENT( USplineToolkitRuleset , FOnShouldRegenerate );
+	DECLARE_EVENT(USplineToolkitRuleset, FOnShouldRegenerate);
+
+
 	FOnShouldRegenerate OnShouldRegenerate;
 
-	DECLARE_EVENT( USplineToolkitRuleset , FOnReapplyMaterials );
+	DECLARE_EVENT(USplineToolkitRuleset, FOnReapplyMaterials);
+
+
 	FOnReapplyMaterials OnReapplyMaterials;
 #endif
 };
+
 
 UCLASS(HideCategories = Object)
 class USplineToolkitRulesetFactory : public UFactory
@@ -281,8 +314,9 @@ class USplineToolkitRulesetFactory : public UFactory
 	GENERATED_BODY()
 
 public:
+
 	USplineToolkitRulesetFactory(const FObjectInitializer& ObjectInitializer);
 
-	virtual UObject* FactoryCreateNew(UClass*  Class, UObject*            InParent, FName Name, EObjectFlags Flags,
+	virtual UObject* FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags,
 	                                  UObject* Context, FFeedbackContext* Warn) override;
 };
