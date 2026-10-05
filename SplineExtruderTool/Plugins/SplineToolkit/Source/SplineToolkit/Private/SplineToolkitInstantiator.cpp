@@ -77,16 +77,20 @@ void USplineToolkitInstantiator::OnRegister()
 	}
 }
 
-USplineToolkitRulesetModifierBase* USplineToolkitInstantiator::GetOrCreateModifierInstance(TSubclassOf<USplineToolkitRulesetModifierBase> Class)
+
+USplineToolkitRulesetModifierBase* USplineToolkitInstantiator::GetOrCreateModifierInstance(
+	TSubclassOf<USplineToolkitRulesetModifierBase> Class)
 {
 	if (USplineToolkitRulesetModifierBase** Found = ModifierInstanceCache.Find(Class))
 	{
 		return *Found;
 	}
-	USplineToolkitRulesetModifierBase* NewInstance = NewObject<USplineToolkitRulesetModifierBase>(GetTransientPackage(), Class);
+	USplineToolkitRulesetModifierBase* NewInstance = NewObject<USplineToolkitRulesetModifierBase>(
+		GetTransientPackage(), Class);
 	ModifierInstanceCache.Add(Class, NewInstance);
 	return NewInstance;
 }
+
 
 void USplineToolkitInstantiator::RegenerateInternal()
 {
@@ -98,6 +102,10 @@ void USplineToolkitInstantiator::RegenerateInternal()
 
 	if (!this->Ruleset->IsValidLowLevelFast())
 		return;
+
+	const auto* Solver = (this->bIgnoreIntersectCutouts)
+		                     ? nullptr
+		                     : GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
 
 	auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
 	if (!RmfSampler)
@@ -114,7 +122,7 @@ void USplineToolkitInstantiator::RegenerateInternal()
 		// Loop over the spline at a set distance of precision. Applying the rules at each point
 		for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += fmax(Rule.StepPrecision, 1.0f))
 		{
-			FSplineToolkitStepContext Context {SplineComponent, CurrentDist};
+			FSplineToolkitStepContext Context{SplineComponent, CurrentDist};
 
 			FSplineToolkitInstantiationRule ModdedRule = Rule;
 			for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
@@ -128,7 +136,7 @@ void USplineToolkitInstantiator::RegenerateInternal()
 				continue;
 
 			// Check if it's in an intersection
-			if (const auto* Solver = GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>())
+			if (Solver)
 			{
 				bool bFound = false;
 				for (const auto& Collision : Solver->Collisions)
@@ -183,9 +191,12 @@ void USplineToolkitInstantiator::RegenerateInternal()
 					Sample.Reference.GetSafeNormal(),
 					FVector::ZeroVector
 				};
+				
+				FQuat FinalRotation = Rotation.ToQuat() * ModdedRule.RotationOffset.Quaternion();
+				
 				FTransform Transform;
-				FVector FinalPosition = Sample.Position + Rotation.TransformPosition(Rule.Offset);
-				Transform.SetComponents(Rotation.ToQuat().GetNormalized(), FinalPosition, Rule.Scale);
+				FVector FinalPosition = Sample.Position + Rotation.TransformPosition(ModdedRule.Offset);
+				Transform.SetComponents(FinalRotation.GetNormalized(), FinalPosition, ModdedRule.Scale);
 
 				if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
 				{

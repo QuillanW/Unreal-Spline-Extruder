@@ -62,6 +62,9 @@ public:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	TArray<TObjectPtr<AActor>> SpawnedInstancedMeshes = {};
+
+	// Only used internally
+	bool bIgnoreIntersectCutouts = false;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	TArray<FSplineToolkitAnchor> Anchors;
