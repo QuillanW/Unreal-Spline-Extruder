@@ -144,10 +144,13 @@ public:
 	FName EndAnchorType;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	ESplineToolkitStretchConnectionType ConnectionType = ESplineToolkitStretchConnectionType::Sequential;
+	float bRollOffset = 0.0f;
 	
-	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
-	TArray<TObjectPtr<USplineToolkitRulesetModifierBase>> Modifiers;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector2D Scale = FVector2D::One();
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	ESplineToolkitStretchConnectionType ConnectionType = ESplineToolkitStretchConnectionType::Sequential;
 };
 
 /// Placement rule for its matching component

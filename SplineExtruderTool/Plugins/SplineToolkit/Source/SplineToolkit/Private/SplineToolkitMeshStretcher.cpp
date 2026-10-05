@@ -145,11 +145,13 @@ void USplineToolkitMeshStretcher::RegenerateInternal()
 			double Distance = Direction.Length();
 			double Size = Rule.Mesh->GetBoundingBox().GetSize().Y;
 			double Scale = Distance / Size;
+			FRotator Rotator = Direction.Rotation();
+			Rotator.Roll = Rule.bRollOffset;
 			
 			FTransform Transform;
 			Transform.SetLocation(Center);
-			Transform.SetRotation(FRotationMatrix::MakeFromY(Direction).ToQuat());
-			Transform.SetScale3D({1, Scale, 1});
+			Transform.SetRotation(Rotator.Quaternion());
+			Transform.SetScale3D({Rule.Scale.X, Scale, Rule.Scale.Y});
 
 			if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
 			{
