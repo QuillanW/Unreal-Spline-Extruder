@@ -74,11 +74,14 @@ public:
 	bool Enabled = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float Spacing = 1.0f;
-
+	float Spacing = 100.0f;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector Offset = FVector::ZeroVector;
-
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FRotator RotationOffset = FRotator::ZeroRotator;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector Scale = FVector::OneVector;
 
