@@ -13,9 +13,9 @@ body:
       required: true
 
   - type: textarea
-    id: dod
+    id: acceptance_criteria
     attributes:
-      label: DoD
+      label: Acceptance Criteria
       description: A list of things that need to be there to mark this as done.
     validations:
       required: true
