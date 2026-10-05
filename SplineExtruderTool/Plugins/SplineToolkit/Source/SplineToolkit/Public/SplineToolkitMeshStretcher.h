@@ -58,6 +58,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	bool AutoUpdate = true;
 	
+	UPROPERTY()
 	TArray<TObjectPtr<AActor>> SpawnedInstancedMeshes = {};
 	
 #if WITH_EDITOR
