@@ -62,6 +62,9 @@ public:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	TArray<TObjectPtr<AActor>> SpawnedInstancedMeshes = {};
+
+	// Only used internally
+	bool bIgnoreIntersectCutouts = false;
 	
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

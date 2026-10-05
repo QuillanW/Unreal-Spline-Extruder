@@ -20,6 +20,8 @@ struct FSplineToolkitSplineIntersection
 	float DistanceMax;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	FVector Midpoint = FVector::ZeroVector;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	float AbsoluteAngleDifference;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	USplineComponent* Other;
@@ -27,7 +29,7 @@ struct FSplineToolkitSplineIntersection
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	int32 OtherSegment;
 
-	int32 SamplesIncluded = 0;
+	float TotalWeight = 0;
 
 	bool operator<(const FSplineToolkitSplineIntersection& O) const;
 };
