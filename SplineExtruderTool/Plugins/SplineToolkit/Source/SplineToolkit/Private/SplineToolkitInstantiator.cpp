@@ -212,6 +212,7 @@ void USplineToolkitInstantiator::ReapplyMaterials()
 {
 	for (const auto& [Rule, Actor] : UE::Zip(this->Ruleset->InstantiationRules, this->SpawnedInstancedMeshes))
 	{
+		if (!IsValid(Actor)) continue;
 		auto* Comp = Actor->GetComponentByClass<UInstancedStaticMeshComponent>();
 		Comp->SetMaterial(0, Rule.Material);
 		Comp->SetOverlayMaterial(Rule.OverlayMaterial);

@@ -138,20 +138,30 @@ void USplineToolkitMeshStretcher::RegenerateInternal()
 		
 		for (int32 Idx = 0; Idx < Anchors[Rule.StartAnchorType].Num() - 1; Idx++)
 		{
+			if (!IsValid(Rule.Mesh)) continue;
+			
 			FVector PointA = Anchors[Rule.StartAnchorType][Idx];
 			FVector PointB = Anchors[Rule.StartAnchorType][Idx + 1];
-			FVector Center = PointA + (PointB - PointA) * 0.5f;
 			FVector Direction = PointB - PointA;
+			FVector Center = PointA + Direction * 0.5f;
 			double Distance = Direction.Length();
+			
 			double Size = Rule.Mesh->GetBoundingBox().GetSize().Y;
 			double Scale = Distance / Size;
-			FRotator Rotator = Direction.Rotation();
-			Rotator.Roll = Rule.bRollOffset;
+			FVector BoxCenter = Rule.Mesh->GetBoundingBox().GetCenter();
+			
+			// Apply rotation from the rule and offset by 90 degrees (Otherwise model is in wrong axis)
+			const FQuat Rotation =
+				Direction.Rotation().Quaternion()
+				* FQuat(FVector::XAxisVector, FMath::DegreesToRadians(Rule.bRollOffset))
+				* FRotator(0.f, -90.f, 0.f).Quaternion();
+			
+			FVector Scale3D = {Rule.Scale.X, Scale, Rule.Scale.Y};
 			
 			FTransform Transform;
-			Transform.SetLocation(Center);
-			Transform.SetRotation(Rotator.Quaternion());
-			Transform.SetScale3D({Rule.Scale.X, Scale, Rule.Scale.Y});
+			Transform.SetLocation(Center - Rotation.RotateVector(BoxCenter * Scale3D));
+			Transform.SetRotation(Rotation);
+			Transform.SetScale3D(Scale3D);
 
 			if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
 			{
@@ -166,8 +176,9 @@ void USplineToolkitMeshStretcher::RegenerateInternal()
 
 void USplineToolkitMeshStretcher::ReapplyMaterials()
 {
-	for (const auto& [Rule, Actor] : UE::Zip(this->Ruleset->InstantiationRules, this->SpawnedInstancedMeshes))
+	for (const auto& [Rule, Actor] : UE::Zip(this->Ruleset->StretchRules, this->SpawnedInstancedMeshes))
 	{
+		if (!IsValid(Actor)) continue;
 		auto* Comp = Actor->GetComponentByClass<UInstancedStaticMeshComponent>();
 		Comp->SetMaterial(0, Rule.Material);
 		Comp->SetOverlayMaterial(Rule.OverlayMaterial);
