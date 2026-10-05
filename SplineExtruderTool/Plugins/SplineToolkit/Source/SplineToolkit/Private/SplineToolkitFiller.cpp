@@ -109,7 +109,7 @@ void USplineToolkitFiller::RegenerateInternal()
 }
 
 
-static FVector SampleOffsetLocation(USplineToolkitRmfSampler* Sampler, float Distance, const FVector& Offset)
+static FVector SampleOffsetLocationFill(USplineToolkitRmfSampler* Sampler, float Distance, const FVector& Offset)
 {
 	auto Sample = Sampler->GetSampleAtDistance(Distance);
 	Sample.Position += Sampler->GetOwner()->GetActorLocation();
@@ -144,7 +144,7 @@ USplineToolkitFiller::FPolyLine USplineToolkitFiller::CreatePolyLine(
 		for (const auto& Modifier : Rule.Modifiers)
 			ModdedRule = Modifier->ModifyInstantiationStep(Context, ModdedRule);
 
-		Result[I] = SampleOffsetLocation(Sampler, Distance, ModdedRule.Offset);
+		Result[I] = SampleOffsetLocationFill(Sampler, Distance, ModdedRule.Offset);
 	}
 	return Result;
 }
@@ -169,7 +169,7 @@ USplineToolkitFiller::FPolyLine USplineToolkitFiller::CreatePolyLine(
 		for (const auto& Modifier : Rule.Modifiers)
 			ModdedRule = Modifier->ModifyExtrusionStep(Context, ModdedRule);
 
-		Result[I] = SampleOffsetLocation(Sampler, Distance, ModdedRule.Offset);
+		Result[I] = SampleOffsetLocationFill(Sampler, Distance, ModdedRule.Offset);
 	}
 	return Result;
 }
