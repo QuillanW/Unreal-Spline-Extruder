@@ -8,6 +8,9 @@
 #include "SplineToolkitRuleset.h"
 #include "SplineToolkitInstantiator.generated.h"
 
+struct FSplineToolkitSplineIntersection;
+
+
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent), DisplayName = "[Spline Toolkit] Mesh Instantiator")
 class SPLINETOOLKIT_API USplineToolkitInstantiator : public UActorComponent
 {
@@ -64,7 +67,7 @@ public:
 	TArray<TObjectPtr<AActor>> SpawnedInstancedMeshes = {};
 
 	// Only used internally
-	bool bIgnoreIntersectCutouts = false;
+	TArray<TPair<int32, const FSplineToolkitSplineIntersection*>> IgnoreIntersectCutouts{};
 	
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

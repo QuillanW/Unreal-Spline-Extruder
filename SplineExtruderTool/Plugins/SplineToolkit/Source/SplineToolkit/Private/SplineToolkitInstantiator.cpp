@@ -96,9 +96,7 @@ void USplineToolkitInstantiator::RegenerateInternal()
 	if (!this->Ruleset->IsValidLowLevelFast())
 		return;
 
-	const auto* Solver = (this->bIgnoreIntersectCutouts)
-		                     ? nullptr
-		                     : GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
+	const auto* Solver = GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
 
 	auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
 	if (!RmfSampler)
@@ -134,6 +132,8 @@ void USplineToolkitInstantiator::RegenerateInternal()
 				bool bFound = false;
 				for (const auto& Collision : Solver->Collisions)
 				{
+					if (this->IgnoreIntersectCutouts.Contains(TPair<int32, const FSplineToolkitSplineIntersection*>{RuleIdx, &Collision}))
+						continue;
 					if (FMath::IsWithin(CurrentDist, Collision.DistanceMin, Collision.DistanceMax))
 					{
 						bFound = true;

@@ -44,7 +44,7 @@ private:
 
 	bool bRegenerate = false;
 
-	TArray<FVector> TempDebugData;
+	TArray<FVector> DebugData;
 
 	// Points where the meshes completely intersect
 	// These points are then used as anhor points for connection rules
@@ -63,7 +63,7 @@ private:
 	};
 
 
-	void RegenerateInternal();
+	void RegenerateInternal(const USplineToolkitFiller* Caller = nullptr);
 
 	static constexpr uint32 NumSamples = 32;
 	using FPolyLine = TStaticArray<FVector, NumSamples>;
@@ -78,10 +78,10 @@ private:
 	// Handles this edge case: User sets a rule to continue normally (from CUTOUT_START to CUTOUT_END on the same spline and rule)
 	static bool RuleContinuesNormally(const FSplineToolkitFillingConnectRule& Rule);
 
-	void RegenerateConnectRules(const FSplineToolkitFillingRules& Rules);
+	void RegenerateConnectRules(const FSplineToolkitSplineIntersection& Intersection, const FSplineToolkitFillingRules& Rules);
 
-	void RegenerateConnectRule(const FSplineToolkitFillingConnectRule& Rule,
-	                           UClass* GeneratorClass);
+	void RegenerateConnectRule(const FSplineToolkitSplineIntersection& Intersection,
+	                           const FSplineToolkitFillingConnectRule& Rule, UClass* GeneratorClass);
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

@@ -40,7 +40,7 @@ public:
 UENUM(BlueprintType)
 enum class ESplineToolkitRuleType : uint8
 {
-	INSTANTIATION UMETA(DisplayName = "Intersection"),
+	INSTANTIATION UMETA(DisplayName = "Instantiation"),
 	EXTRUSION UMETA(DisplayName = "Extrusion"),
 	STRETCH UMETA(DisplayName = "Stretch"),
 };
@@ -187,12 +187,10 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRuleParams
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	uint8 SplineIndex = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite,
-		meta = (EditCondition = "Type == EFillAnchorType::INTERSECT_RULE", EditConditionHides))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	ESplineToolkitRuleType RuleType = ESplineToolkitRuleType::INSTANTIATION;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite,
-		meta = (EditCondition = "Type == EFillAnchorType::INTERSECT_RULE", EditConditionHides))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	uint8 RuleIndex = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite,

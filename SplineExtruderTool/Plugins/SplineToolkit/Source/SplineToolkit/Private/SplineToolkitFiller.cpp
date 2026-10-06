@@ -69,7 +69,7 @@ void USplineToolkitFiller::TickComponent(float DeltaTime, ELevelTick TickType,
 
 	if (GSplineToolkitShowFillIntersections)
 	{
-		for (const auto& Midpoint : this->TempDebugData)
+		for (const auto& Midpoint : this->DebugData)
 			DrawDebugSphere(GetWorld(), Midpoint, 10.f, 16, FColor::White);
 	}
 }
@@ -81,7 +81,7 @@ void USplineToolkitFiller::Regenerate()
 }
 
 
-void USplineToolkitFiller::RegenerateInternal()
+void USplineToolkitFiller::RegenerateInternal(const USplineToolkitFiller* Caller)
 {
 	if (!this->Ruleset)
 		return;
@@ -90,21 +90,29 @@ void USplineToolkitFiller::RegenerateInternal()
 	if (!IsValid(IntersectionSolver))
 		return;
 
-	this->TempDebugData.Empty();
+	this->DebugData.Empty();
+
+	if (auto* Extruder = GetOwner()->FindComponentByClass<USplineToolkitMeshExtruder>())
+		Extruder->IgnoreIntersectCutouts.Empty();
+	if (auto* Instantiator = GetOwner()->FindComponentByClass<USplineToolkitInstantiator>())
+		Instantiator->IgnoreIntersectCutouts.Empty();
 
 	for (const auto& Intersection : IntersectionSolver->Collisions)
 	{
 		auto Collision = DetermineCollisionPoints(Intersection);
 		for (const auto& Point : Collision)
-			this->TempDebugData.Add(Point.Midpoint);
+			this->DebugData.Add(Point.Midpoint);
 
 		for (const auto& Rules : this->Ruleset->FillingRules)
 		{
 			if (!FMath::IsWithinInclusive(Intersection.AbsoluteAngleDifference, Rules.AngleMin, Rules.AngleMax))
 				continue;
-			RegenerateConnectRules(Rules);
+			RegenerateConnectRules(Intersection, Rules);
 			break;
 		}
+		if (auto* Filler = Intersection.Other->GetOwner()->FindComponentByClass<USplineToolkitFiller>();
+			Filler && !Caller)
+			Filler->RegenerateInternal(this);
 	}
 }
 
@@ -349,7 +357,8 @@ bool USplineToolkitFiller::RuleContinuesNormally(const FSplineToolkitFillingConn
 }
 
 
-void USplineToolkitFiller::RegenerateConnectRules(const FSplineToolkitFillingRules& Rules)
+void USplineToolkitFiller::RegenerateConnectRules(const FSplineToolkitSplineIntersection& Intersection,
+                                                  const FSplineToolkitFillingRules& Rules)
 {
 	for (const auto& ConnectRule : Rules.ConnectRules)
 	{
@@ -358,19 +367,19 @@ void USplineToolkitFiller::RegenerateConnectRules(const FSplineToolkitFillingRul
 		case ESplineToolkitRuleType::INSTANTIATION:
 		{
 			// const auto& Rule = this->Ruleset->InstantiationRules[ConnectRule.RuleIndex];
-			RegenerateConnectRule(ConnectRule, USplineToolkitInstantiator::StaticClass());
+			RegenerateConnectRule(Intersection, ConnectRule, USplineToolkitInstantiator::StaticClass());
 			break;
 		}
 		case ESplineToolkitRuleType::EXTRUSION:
 		{
 			// const auto& Rule = this->Ruleset->ExtrusionRules[ConnectRule.RuleIndex];
-			RegenerateConnectRule(ConnectRule, USplineToolkitMeshExtruder::StaticClass());
+			RegenerateConnectRule(Intersection, ConnectRule, USplineToolkitMeshExtruder::StaticClass());
 			break;
 		}
 		case ESplineToolkitRuleType::STRETCH:
 		{
 			// const auto& Rule = this->Ruleset->StretchRules[ConnectRule.RuleIndex];
-			RegenerateConnectRule(ConnectRule, USplineToolkitMeshExtruder::StaticClass());
+			RegenerateConnectRule(Intersection, ConnectRule, USplineToolkitMeshExtruder::StaticClass());
 			break;
 		}
 		}
@@ -378,16 +387,17 @@ void USplineToolkitFiller::RegenerateConnectRules(const FSplineToolkitFillingRul
 }
 
 
-void USplineToolkitFiller::RegenerateConnectRule(const FSplineToolkitFillingConnectRule& Rule, UClass* GeneratorClass)
+void USplineToolkitFiller::RegenerateConnectRule(const FSplineToolkitSplineIntersection& Intersection,
+                                                 const FSplineToolkitFillingConnectRule& Rule, UClass* GeneratorClass)
 {
 	if (RuleContinuesNormally(Rule))
 	{
 		auto* Comp = GetOwner()->FindComponentByClass(GeneratorClass);
 
 		if (GeneratorClass == USplineToolkitInstantiator::StaticClass())
-			Cast<USplineToolkitInstantiator>(Comp)->bIgnoreIntersectCutouts = true;
+			Cast<USplineToolkitInstantiator>(Comp)->IgnoreIntersectCutouts.Emplace(Rule.RuleIndex, &Intersection);
 		else if (GeneratorClass == USplineToolkitMeshExtruder::StaticClass())
-			Cast<USplineToolkitMeshExtruder>(Comp)->bIgnoreIntersectCutouts = true;
+			Cast<USplineToolkitMeshExtruder>(Comp)->IgnoreIntersectCutouts.Emplace(Rule.RuleIndex, &Intersection);
 
 		return;
 	}

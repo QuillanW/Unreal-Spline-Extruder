@@ -204,14 +204,15 @@ void USplineToolkitMeshExtruder::RegenerateInternal()
 	uint32 Ptr = 0;
 	for (const auto& Rule : this->Ruleset->ExtrusionRules)
 	{
-		auto& Data = this->OutMeshes[Ptr++];
+		auto& Data = this->OutMeshes[Ptr];
 		ExtractOriginSlice(Rule.Mesh, Data);
 
 		if (auto* MeshComponent = Data.MeshActor->FindComponentByClass<UProceduralMeshComponent>();
 			!Data.OriginSlice.IsEmpty() && MeshComponent)
 		{
-			ComputeMesh(Rule, MeshComponent, Data);
+			ComputeMesh(Rule, Ptr, MeshComponent, Data);
 		}
+		Ptr++;
 	}
 }
 
@@ -579,6 +580,7 @@ TArray<int32> USplineToolkitMeshExtruder::ReorderToLoop(const FRawStaticIndexBuf
 void USplineToolkitMeshExtruder::AddStartCap(USplineToolkitIntersectionSolver* Solver,
                                              FSplineToolkitExtruderDrawData& DrawData,
                                              const FSplineToolkitExtrusionRule& Rule,
+                                             int32 RuleIndex,
                                              const FSplineToolkitExtruderMeshData& Data) const
 {
 	FSplineToolkitRmfSample Sample{
@@ -586,7 +588,7 @@ void USplineToolkitMeshExtruder::AddStartCap(USplineToolkitIntersectionSolver* S
 	};
 	int32 VertexPtr = 0;
 	bool _;
-	AddNextSampleToMesh(Solver, DrawData, Rule, Data, Sample, VertexPtr, _);
+	AddNextSampleToMesh(Solver, RuleIndex, DrawData, Rule, Data, Sample, VertexPtr, _);
 
 	const int32 IterEnd = VertexPtr - Data.OriginSlice.VertexNum();
 	while (VertexPtr >= IterEnd)
@@ -600,6 +602,7 @@ void USplineToolkitMeshExtruder::AddStartCap(USplineToolkitIntersectionSolver* S
 void USplineToolkitMeshExtruder::AddEndCap(USplineToolkitIntersectionSolver* Solver,
                                            FSplineToolkitExtruderDrawData& DrawData,
                                            const FSplineToolkitExtrusionRule& Rule,
+                                           int32 RuleIndex,
                                            const FSplineToolkitExtruderMeshData& Data) const
 {
 	FSplineToolkitRmfSample Sample{
@@ -607,7 +610,7 @@ void USplineToolkitMeshExtruder::AddEndCap(USplineToolkitIntersectionSolver* Sol
 	};
 	int32 VertexPtr = 0;
 	bool _;
-	AddNextSampleToMesh(Solver, DrawData, Rule, Data, Sample, VertexPtr, _);
+	AddNextSampleToMesh(Solver, RuleIndex, DrawData, Rule, Data, Sample, VertexPtr, _);
 
 	const int32 IterEnd = VertexPtr - Data.OriginSlice.VertexNum();
 	while (VertexPtr >= IterEnd)
@@ -619,6 +622,7 @@ void USplineToolkitMeshExtruder::AddEndCap(USplineToolkitIntersectionSolver* Sol
 
 
 bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionSolver* Solver,
+                                                     int32 RuleIndex,
                                                      FSplineToolkitExtruderDrawData& DrawData,
                                                      const FSplineToolkitExtrusionRule& Rule,
                                                      const FSplineToolkitExtruderMeshData& Data,
@@ -675,11 +679,15 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 		for (auto Iter = Solver->Collisions.begin(); Iter != Solver->Collisions.end(); ++Iter)
 		{
 			const auto& Cut = *Iter;
+			if (this->IgnoreIntersectCutouts.Contains(TPair<int32, const FSplineToolkitSplineIntersection*>{RuleIndex, &Cut}))
+				continue;
+
 			if (FMath::IsWithin(OutRmfSample.Distance, Cut.DistanceMin, Cut.DistanceMax))
 			{
 				// First add the beginning of the range
 				auto BeginSample = RmfSampler->GetSampleAtDistance(Cut.DistanceMin);
-				AddNextSampleToMesh(Solver, DrawData, Rule, Data, BeginSample, OutVertexPtr, OutDontConnect, true);
+				AddNextSampleToMesh(Solver, RuleIndex, DrawData, Rule, Data, BeginSample, OutVertexPtr, OutDontConnect,
+				                    true);
 				ConnectToPreviousSample(DrawData, OutVertexPtr, Data);
 
 				const TPair<decltype(Iter), float> CutEnd = FindCollisionEnd(Iter, Iter->DistanceMax, FindCollisionEnd);
@@ -779,13 +787,12 @@ void USplineToolkitMeshExtruder::ConnectToPreviousSample(FSplineToolkitExtruderD
 
 
 void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& Rule,
+                                             int32 RuleIndex,
                                              UProceduralMeshComponent* MeshComponent,
                                              const FSplineToolkitExtruderMeshData& Data) const
 {
 	// A nullptr solver means it just does not take it into account
-	auto* Solver = (this->bIgnoreIntersectCutouts)
-		               ? nullptr
-		               : GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
+	auto* Solver = GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
 
 	auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
 
@@ -806,7 +813,7 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 	}
 	else
 	{
-		AddStartCap(Solver, DrawData, Rule, Data);
+		AddStartCap(Solver, DrawData, Rule, RuleIndex, Data);
 		auto StartCap = ComputeEndCap(Data, 0, true);
 
 		const uint32 NumCapsIndices = 2 * StartCap.Num();
@@ -821,7 +828,7 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 		.Distance = -1.f
 	};
 	bool bDontConnect = false;
-	while (AddNextSampleToMesh(Solver, DrawData, Rule, Data, Sample, VertexPtr, bDontConnect))
+	while (AddNextSampleToMesh(Solver, RuleIndex, DrawData, Rule, Data, Sample, VertexPtr, bDontConnect))
 	{
 		if (!bDontConnect)
 			ConnectToPreviousSample(DrawData, VertexPtr, Data);
@@ -831,7 +838,7 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 		Solver->Collisions.Last().DistanceMax, SplineComponent->GetSplineLength(), KINDA_SMALL_NUMBER);
 	if (!bNoEndCap)
 	{
-		AddEndCap(Solver, DrawData, Rule, Data);
+		AddEndCap(Solver, DrawData, Rule, RuleIndex, Data);
 
 		auto EndCap = ComputeEndCap(Data, DrawData.VertexTop() - Data.OriginSlice.VertexNum(), false);
 		DrawData.AppendIndices(MoveTemp(EndCap));
