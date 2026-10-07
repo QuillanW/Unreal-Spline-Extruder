@@ -8,13 +8,6 @@
 #include "SplineToolkitRuleset.generated.h"
 
 // ===============================
-//         HELPER FUNCS
-// ===============================
-
-// MaxCurvature controls sensitivity, it's the curvature (in 1/cm) that maps to ~1.0.
-float GetCurvatureAtDistanceAlongSpline(USplineComponent* Spline, float Distance, float MaxCurvature = 1.0f);
-
-// ===============================
 //         GENERIC TYPES
 // ===============================
 
@@ -66,9 +59,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TObjectPtr<class UMaterialInterface> OverlayMaterial;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float StepPrecision = 1.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool Enabled = true;

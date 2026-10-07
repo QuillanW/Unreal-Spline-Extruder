@@ -6,10 +6,21 @@ static FAutoConsoleVariableRef CVarShowExtruderRmfSamples(
 	GSplineToolkitShowRmfSamples,
 	TEXT("Shows the RMF samples on all splines with the sampler component."));
 
+int32 GSplineToolkitShowRmfCurvature = 0;
+static FAutoConsoleVariableRef CVarShowExtruderRmfCurvature(
+	TEXT("stk.RMF.ShowCurvature"),
+	GSplineToolkitShowRmfCurvature,
+	TEXT("Shows the sampled curvature on all splines with the sampler component."));
+
 
 void USplineToolkitRmfSampler::OnRegister()
 {
 	Super::OnRegister();
+	
+	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bTickEvenWhenPaused = true;
+	PrimaryComponentTick.bStartWithTickEnabled = true;
+	bTickInEditor = true;
 
 	if (const AActor* Owner = GetOwner())
 	{
@@ -32,19 +43,25 @@ void USplineToolkitRmfSampler::TickComponent(float DeltaTime, enum ELevelTick Ti
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (GSplineToolkitShowRmfSamples)
-	{
 		for (const auto& Sample : Samples)
 		{
-			FMatrix CoordinateMatrix{
-				Sample.Bitangent.GetSafeNormal(), Sample.Tangent.GetSafeNormal(), Sample.Reference.GetSafeNormal(),
-				FVector::ZeroVector
-			};
-			DrawDebugCoordinateSystem(GetWorld(), Sample.Position + GetOwner()->GetActorLocation(),
-			                          CoordinateMatrix.Rotator(), 100.f, false, -1, 0,
-			                          3.f);
+			if (GSplineToolkitShowRmfSamples)
+			{
+				FMatrix CoordinateMatrix{
+					Sample.Bitangent.GetSafeNormal(), Sample.Tangent.GetSafeNormal(), Sample.Reference.GetSafeNormal(),
+					FVector::ZeroVector
+				};
+				DrawDebugCoordinateSystem(GetWorld(), Sample.Position + GetOwner()->GetActorLocation(),
+				                          CoordinateMatrix.Rotator(), 100.f, false, -1, 0,
+				                          3.f);
+			}
+			
+			if (GSplineToolkitShowRmfCurvature)
+			{
+				FVector BasePosition = Sample.Position + GetOwner()->GetActorLocation();
+				DrawDebugLine(GetWorld(), BasePosition, BasePosition + Sample.Bitangent.GetSafeNormal() * Sample.Curvature, FColor::White);
+			}
 		}
-	}
 }
 
 
@@ -109,7 +126,8 @@ void USplineToolkitRmfSampler::Regenerate()
 		.Distance = 0.0f,
 		.Tangent = SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::Local).GetSafeNormal(),
 		.Reference = SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::Local).GetSafeNormal(),
-		.Roll = StartRoll
+		.Roll = StartRoll,
+		.Curvature = 0.0f
 	};
 
 	PrevSample.Bitangent = PrevSample.Tangent.Cross(PrevSample.Reference);
@@ -172,13 +190,17 @@ FSplineToolkitRmfSample USplineToolkitRmfSampler::InternalGetSampleAtDistance(co
 	// Set roll
 	const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::Local);
 
+	// Set curvature
+	const float Curvature = acos(Tangent.GetSafeNormal().Dot(Reference.Tangent.GetSafeNormal())) * 1000.0f;
+	
 	auto Sample = FSplineToolkitRmfSample{
 		.Position = Position,
 		.Distance = Distance,
 		.Tangent = Tangent,
 		.Bitangent = NewBitangent,
 		.Reference = NewReference,
-		.Roll = Roll
+		.Roll = Roll,
+		.Curvature = Curvature
 	};
 
 	Sample.Reference = Sample.Reference.RotateAngleAxis(Roll - Reference.Roll, Sample.Tangent);

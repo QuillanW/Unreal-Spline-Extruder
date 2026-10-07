@@ -3,13 +3,11 @@
 #include "SplineToolkitRuleset.h"
 #include "Components/SplineComponent.h"
 
-FSplineToolkitStepContext::FSplineToolkitStepContext(USplineComponent* Spline, float Distance)
+FSplineToolkitStepContext::FSplineToolkitStepContext(USplineComponent* Spline, FSplineToolkitRmfSample Sample)
 {
 	SplineComponent = Spline;
-	TimeAlongSpline = Spline->GetTimeAtDistanceAlongSpline(Distance);
-	DistanceAlongSpline = Distance;
+	RMFSample = Sample;
 	bCross = false; // TODO: Implement this pls Patrick :D
 	bSplit = false; // TODO: Implement once we got the components finished up
-	Curvature = GetCurvatureAtDistanceAlongSpline(SplineComponent, Distance);
-	WorldTransform = Spline->GetTransformAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
+	WorldTransform = Spline->GetTransformAtDistanceAlongSpline(Sample.Distance, ESplineCoordinateSpace::World);
 }

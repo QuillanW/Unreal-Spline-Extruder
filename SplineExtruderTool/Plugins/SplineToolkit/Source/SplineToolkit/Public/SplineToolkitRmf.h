@@ -22,6 +22,8 @@ struct FSplineToolkitRmfSample
 	FVector Reference; // Up vector
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	float Roll; // This is only needed to calculate relative roll
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float Curvature;
 
 	bool operator==(const FSplineToolkitRmfSample&) const = default;
 };
@@ -32,7 +34,7 @@ class SPLINETOOLKIT_API USplineToolkitRmfSampler : public UActorComponent
 	GENERATED_BODY()
 
 public:
-
+	
 	void OnRegister() override;
 
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
