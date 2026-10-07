@@ -6,16 +6,25 @@
 #include "Components/SplineComponent.h"
 #include "CoreMinimal.h"
 #include "SplineToolkitRuleset.h"
-#include "SplineToolkitInstantiator.generated.h"
+#include "SplineToolkitMeshStretcher.generated.h"
 
-UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent), DisplayName = "[Spline Toolkit] Mesh Instantiator")
-class SPLINETOOLKIT_API USplineToolkitInstantiator : public UActorComponent
+class USplineToolkitInstantiator;
+
+struct FMeshStretcherInstance
+{
+	FVector StartPos;
+	FVector EndPos;
+};
+
+
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent), DisplayName = "[Spline Toolkit] Mesh Stretcher")
+class SPLINETOOLKIT_API USplineToolkitMeshStretcher : public UActorComponent
 {
 	GENERATED_BODY()
 
 public:
 	// Sets default values for this component's properties
-	USplineToolkitInstantiator();
+	USplineToolkitMeshStretcher();
 
 	// Called when the game starts
 	virtual void BeginPlay() override;
@@ -27,15 +36,11 @@ public:
 protected:
 	virtual void OnRegister() override;
 	
-	USplineToolkitRulesetModifierBase* GetOrCreateModifierInstance(TSubclassOf<USplineToolkitRulesetModifierBase> Class);
-	
 	void RegenerateInternal();
 	void ReapplyMaterials();
 	
 	bool bRegenerate = false;
-	
-	UPROPERTY(Transient)
-	TMap<TSubclassOf<USplineToolkitRulesetModifierBase>, USplineToolkitRulesetModifierBase*> ModifierInstanceCache;
+	bool bRetry = false;
 
 public:
 	// Called every frame
@@ -43,31 +48,26 @@ public:
 	TickComponent(float                        DeltaTime, ELevelTick TickType,
 	              FActorComponentTickFunction* ThisTickFunction) override;
 
-	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit")
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit") 
 	void Regenerate();
 	
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit")
 	void Clear();
 
-	void MarkDirty();
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	USplineToolkitRuleset* Ruleset = nullptr;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
-	USplineComponent* SplineComponent = nullptr;
+	TObjectPtr<USplineComponent> SplineComponent = {};
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Spline Toolkit")
+	TObjectPtr<USplineToolkitInstantiator> InstantiatorComponent = {};
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	bool AutoUpdate = true;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	UPROPERTY()
 	TArray<TObjectPtr<AActor>> SpawnedInstancedMeshes = {};
-
-	// Only used internally
-	bool bIgnoreIntersectCutouts = false;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
-	TArray<FSplineToolkitAnchor> Anchors;
 	
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
