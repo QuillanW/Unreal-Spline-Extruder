@@ -113,9 +113,11 @@ void USplineToolkitInstantiator::RegenerateInternal()
 	for (const auto& Rule : this->Ruleset->InstantiationRules)
 	{
 		// Loop over the spline at a set distance of precision. Applying the rules at each point
-		for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += fmax(Rule.StepPrecision, 1.0f))
+		for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += Rule.Spacing)
 		{
-			FSplineToolkitStepContext Context{SplineComponent, CurrentDist};
+			auto Sample = RmfSampler->GetSampleAtDistance(CurrentDist);
+			
+			FSplineToolkitStepContext Context{SplineComponent, Sample};
 
 			FSplineToolkitInstantiationRule ModdedRule = Rule;
 			for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
@@ -143,13 +145,6 @@ void USplineToolkitInstantiator::RegenerateInternal()
 				if (bFound)
 					continue;
 			}
-
-			// Check if spacing is reached
-			const float Offset = fmodf(CurrentDist, ModdedRule.Spacing);
-			if (Offset >= ModdedRule.StepPrecision)
-				continue;
-
-			auto Sample = RmfSampler->GetSampleAtDistance(CurrentDist);
 
 			TObjectPtr<AActor> InstancerActor = {};
 			if (RuleIdx >= SpawnedInstancedMeshes.Num())
