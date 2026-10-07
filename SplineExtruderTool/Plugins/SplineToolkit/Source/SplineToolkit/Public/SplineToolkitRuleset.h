@@ -165,6 +165,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float bRollOffset = 0.0f;
 	
+	// Only used when ConnectionType is set to Closest
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MaxDistance = 100.0f;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector2D Scale = FVector2D::One();
 	

@@ -100,16 +100,44 @@ void USplineToolkitMeshStretcher::RegenerateInternal()
 	
 	if (Anchors.IsEmpty()) return;
 	
-	int32 RuleIdx = -1;
-	
 	// Loop over the rules
+	int32 RuleIdx = -1;
 	for (const auto& Rule : Ruleset->StretchRules)
 	{
-		++RuleIdx;
+		RuleIdx++;
+		TArray<FMeshStretcherInstance> MeshInstances = {};
 		
-		if (Rule.ConnectionType == ESplineToolkitStretchConnectionType::Closest) continue; // TODO
+		if (Rule.ConnectionType == ESplineToolkitStretchConnectionType::Closest)
+		{
+			for (int32 StartIdx = 0; StartIdx < Anchors[Rule.StartAnchorType].Num() - 1; StartIdx++)
+			{
+				
+				FVector StartPoint = Anchors[Rule.StartAnchorType][StartIdx];
+				float ClosestDist = Rule.MaxDistance;
+				int32 AnchorIdx = -1;
+				for (int32 EndIdx = 0; EndIdx < Anchors[Rule.EndAnchorType].Num() - 1; EndIdx++)
+				{
+					FVector Offset = Anchors[Rule.EndAnchorType][EndIdx] - StartPoint;
+					float Dist = Offset.Length();
+					if (Dist > ClosestDist) continue;
+					ClosestDist = Dist;
+					AnchorIdx = EndIdx;
+				}
+				
+				if (AnchorIdx != -1)
+					MeshInstances.Add({StartPoint, Anchors[Rule.EndAnchorType][AnchorIdx]});
+			}
+		}
+		else if (Rule.ConnectionType == ESplineToolkitStretchConnectionType::Sequential)
+		{
+			for (int32 Idx = 0; Idx < Anchors[Rule.StartAnchorType].Num() - 1; Idx++)
+			{
+				MeshInstances.Add({Anchors[Rule.StartAnchorType][Idx], Anchors[Rule.StartAnchorType][Idx + 1]});
+			}
+		}
 		
 		TObjectPtr<AActor> InstancerActor = {};
+		
 		if (RuleIdx >= SpawnedInstancedMeshes.Num())
 		{
 			InstancerActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass());
@@ -133,31 +161,29 @@ void USplineToolkitMeshStretcher::RegenerateInternal()
 		{
 			InstancerActor = SpawnedInstancedMeshes[RuleIdx];
 		}
-		
+			
 		if (!InstancerActor) continue;
 		
-		for (int32 Idx = 0; Idx < Anchors[Rule.StartAnchorType].Num() - 1; Idx++)
+		for (const auto& Instance : MeshInstances)
 		{
-			if (!IsValid(Rule.Mesh)) continue;
-			
-			FVector PointA = Anchors[Rule.StartAnchorType][Idx];
-			FVector PointB = Anchors[Rule.StartAnchorType][Idx + 1];
+			FVector PointA = Instance.StartPos;
+			FVector PointB = Instance.EndPos;
 			FVector Direction = PointB - PointA;
 			FVector Center = PointA + Direction * 0.5f;
 			double Distance = Direction.Length();
-			
+						
 			double Size = Rule.Mesh->GetBoundingBox().GetSize().Y;
 			double Scale = Distance / Size;
 			FVector BoxCenter = Rule.Mesh->GetBoundingBox().GetCenter();
-			
+						
 			// Apply rotation from the rule and offset by 90 degrees (Otherwise model is in wrong axis)
 			const FQuat Rotation =
 				Direction.Rotation().Quaternion()
 				* FQuat(FVector::XAxisVector, FMath::DegreesToRadians(Rule.bRollOffset))
 				* FRotator(0.f, -90.f, 0.f).Quaternion();
-			
+						
 			FVector Scale3D = {Rule.Scale.X, Scale, Rule.Scale.Y};
-			
+						
 			FTransform Transform;
 			Transform.SetLocation(Center - Rotation.RotateVector(BoxCenter * Scale3D));
 			Transform.SetRotation(Rotation);
@@ -169,7 +195,6 @@ void USplineToolkitMeshStretcher::RegenerateInternal()
 				InstancerComp->AddInstance(Transform, false);
 			}
 		}
-		
 	}
 }
 

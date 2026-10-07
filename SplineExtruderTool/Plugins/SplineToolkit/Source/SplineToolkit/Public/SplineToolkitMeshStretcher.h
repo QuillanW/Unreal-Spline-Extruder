@@ -10,6 +10,13 @@
 
 class USplineToolkitInstantiator;
 
+struct FMeshStretcherInstance
+{
+	FVector StartPos;
+	FVector EndPos;
+};
+
+
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent), DisplayName = "[Spline Toolkit] Mesh Stretcher")
 class SPLINETOOLKIT_API USplineToolkitMeshStretcher : public UActorComponent
 {
