@@ -207,7 +207,7 @@ void USplineToolkitInstantiator::RegenerateInternal()
 				for (auto Anchor : ModdedRule.Anchors)
 				{
 					auto PlacedAnchor = Anchor;
-					PlacedAnchor.SpawnedWorldLocation = Sample.Position + Rotation.TransformPosition(PlacedAnchor.Offset);
+					PlacedAnchor.SpawnedLocalLocation = Sample.Position + Rotation.TransformPosition(PlacedAnchor.Offset);
 					Anchors.Add(PlacedAnchor);
 				}
 					
@@ -249,9 +249,11 @@ void USplineToolkitInstantiator::TickComponent(
 	if (bRegenerate)
 		RegenerateInternal();
 	
+	FVector Offset = GetOwner()->GetActorTransform().GetLocation();
+	
 	if (GSplineToolkitShowAnchors)
 		for (const auto& Anchor : Anchors)
-			DrawDebugSphere(GetWorld(), Anchor.SpawnedWorldLocation, 10.0f, 8, FColor::White);
+			DrawDebugSphere(GetWorld(), Offset + Anchor.SpawnedLocalLocation, 10.0f, 8, FColor::White);
 }
 
 

@@ -40,6 +40,7 @@ protected:
 	void ReapplyMaterials();
 	
 	bool bRegenerate = false;
+	bool bRetry = false;
 
 public:
 	// Called every frame

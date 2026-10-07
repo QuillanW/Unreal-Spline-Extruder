@@ -76,6 +76,8 @@ void USplineToolkitMeshStretcher::OnRegister()
 void USplineToolkitMeshStretcher::RegenerateInternal()
 {
 	bRegenerate = false;
+	bool Retry = bRetry;
+	bRetry = false;
 	
 	if (!this->Ruleset->IsValidLowLevelFast())
 	{
@@ -96,14 +98,21 @@ void USplineToolkitMeshStretcher::RegenerateInternal()
 	// Get all anchors from the instantiator
 	TMap<FName, TArray<FVector>> Anchors;
 	for (const auto& Anchor : InstantiatorComponent->Anchors)
-		Anchors.FindOrAdd(Anchor.Type).Add(Anchor.SpawnedWorldLocation);
+		Anchors.FindOrAdd(Anchor.Type).Add(Anchor.SpawnedLocalLocation);
 	
-	if (Anchors.IsEmpty()) return;
+	TMap<int32, int32> AnchorConnectCount = {};
+	
+	if (Anchors.IsEmpty())
+		if (!Retry) bRetry = true;
 	
 	// Loop over the rules
 	int32 RuleIdx = -1;
 	for (const auto& Rule : Ruleset->StretchRules)
 	{
+		if (!Anchors.Contains(Rule.StartAnchorType)) continue;
+		if (Rule.ConnectionType == ESplineToolkitStretchConnectionType::Closest)
+			if (!Anchors.Contains(Rule.EndAnchorType)) continue;
+		
 		RuleIdx++;
 		TArray<FMeshStretcherInstance> MeshInstances = {};
 		
@@ -111,17 +120,20 @@ void USplineToolkitMeshStretcher::RegenerateInternal()
 		{
 			for (int32 StartIdx = 0; StartIdx < Anchors[Rule.StartAnchorType].Num() - 1; StartIdx++)
 			{
-				
 				FVector StartPoint = Anchors[Rule.StartAnchorType][StartIdx];
 				float ClosestDist = Rule.MaxDistance;
 				int32 AnchorIdx = -1;
 				for (int32 EndIdx = 0; EndIdx < Anchors[Rule.EndAnchorType].Num() - 1; EndIdx++)
 				{
+					if (!AnchorConnectCount.Contains(EndIdx)) 
+						AnchorConnectCount.Add(EndIdx) = 0;
+					
 					FVector Offset = Anchors[Rule.EndAnchorType][EndIdx] - StartPoint;
 					float Dist = Offset.Length();
-					if (Dist > ClosestDist) continue;
+					if (Dist > ClosestDist || Dist < Rule.MinDistance || AnchorConnectCount[EndIdx] >= Rule.MaxConnectCount) continue;
 					ClosestDist = Dist;
 					AnchorIdx = EndIdx;
+					AnchorConnectCount[EndIdx]++;
 				}
 				
 				if (AnchorIdx != -1)
@@ -226,7 +238,7 @@ void USplineToolkitMeshStretcher::TickComponent(
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (bRegenerate)
+	if (bRegenerate || bRetry)
 		RegenerateInternal();
 }
 

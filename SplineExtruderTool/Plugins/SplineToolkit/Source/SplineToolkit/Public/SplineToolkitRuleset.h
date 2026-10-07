@@ -35,7 +35,7 @@ public:
 	FName Type;
 	
 	// Only set once spawned
-	FVector SpawnedWorldLocation = {};
+	FVector SpawnedLocalLocation = {};
 };
 
 /// Modifier threshold type
@@ -165,15 +165,23 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float bRollOffset = 0.0f;
 	
-	// Only used when ConnectionType is set to Closest
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float MaxDistance = 100.0f;
-	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector2D Scale = FVector2D::One();
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	ESplineToolkitStretchConnectionType ConnectionType = ESplineToolkitStretchConnectionType::Sequential;
+
+	// Only used when ConnectionType is set to Closest
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MaxDistance = 1000.0f;
+	
+	// Only used when ConnectionType is set to Closest
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MinDistance = 100.0f;
+	
+	// Only used when ConnectionType is set to Closest
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 MaxConnectCount = 1;
 };
 
 
