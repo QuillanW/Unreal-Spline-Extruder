@@ -27,11 +27,15 @@ public:
 protected:
 	virtual void OnRegister() override;
 	
-	FSplineToolkitRmfSample GetRMFSampleAtDistance(float d, FSplineToolkitRmfSample& prevSample) const;
+	USplineToolkitRulesetModifierBase* GetOrCreateModifierInstance(TSubclassOf<USplineToolkitRulesetModifierBase> Class);
 	
 	void RegenerateInternal();
+	void ReapplyMaterials();
 	
 	bool bRegenerate = false;
+	
+	UPROPERTY(Transient)
+	TMap<TSubclassOf<USplineToolkitRulesetModifierBase>, USplineToolkitRulesetModifierBase*> ModifierInstanceCache;
 
 public:
 	// Called every frame
@@ -45,6 +49,8 @@ public:
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit")
 	void Clear();
 
+	void MarkDirty();
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	USplineToolkitRuleset* Ruleset = nullptr;
 
@@ -56,6 +62,9 @@ public:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	TArray<TObjectPtr<AActor>> SpawnedInstancedMeshes = {};
+
+	// Only used internally
+	bool bIgnoreIntersectCutouts = false;
 	
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
