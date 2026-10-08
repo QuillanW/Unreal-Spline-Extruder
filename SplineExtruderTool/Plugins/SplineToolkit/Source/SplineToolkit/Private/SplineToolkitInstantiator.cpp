@@ -85,6 +85,112 @@ USplineToolkitRulesetModifierBase* USplineToolkitInstantiator::GetOrCreateModifi
 }
 
 
+void USplineToolkitInstantiator::RegenerateRule(const FSplineToolkitInstantiationRule& Rule, int32 RuleIdx, const float TotalLen, USplineToolkitRmfSampler* RmfSampler, const USplineToolkitIntersectionSolver* Solver)
+{
+	// Loop over the spline at a set distance of precision. Applying the rules at each point
+	for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += fmax(Rule.StepPrecision, 1.0f))
+	{
+		float Distance = CurrentDist;
+
+		// Update the distance properly
+		if (this->Overrides.Distance.IsSet())
+		{
+			const auto Override = this->Overrides.Distance.GetValue();
+			const float Time = this->SplineComponent->GetTimeAtDistanceAlongSpline(Distance);
+			Distance = FMath::Lerp(Override.X, Override.Y, Time);
+		}
+
+		FSplineToolkitStepContext Context{
+			this->Overrides.ModifierSpline ? this->Overrides.ModifierSpline : this->SplineComponent,
+			Distance
+		};
+
+		FSplineToolkitInstantiationRule ModdedRule = Rule;
+		for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
+		{
+			if (!Modifier) continue;
+			ModdedRule = Modifier->ModifyInstantiationStep(Context, ModdedRule);
+		}
+
+		// Check if enabled (Can be changed by modifier, so checking each step)
+		if (!ModdedRule.Enabled)
+			continue;
+
+		// Check if it's in an intersection
+		if (Solver)
+		{
+			bool bFound = false;
+			for (const auto& Collision : Solver->Collisions)
+			{
+				if (this->IgnoreIntersectCutouts.Contains(TPair<int32, const FSplineToolkitSplineIntersection*>{RuleIdx, &Collision}))
+					continue;
+				if (FMath::IsWithin(Distance, Collision.DistanceMin, Collision.DistanceMax))
+				{
+					bFound = true;
+					break;
+				}
+			}
+			if (bFound)
+				continue;
+		}
+
+		// Check if spacing is reached
+		const float Offset = fmodf(Distance, ModdedRule.Spacing);
+		if (Offset >= ModdedRule.StepPrecision)
+			continue;
+
+		auto Sample = RmfSampler->GetSampleAtDistance(CurrentDist);
+
+		TObjectPtr<AActor> InstancerActor = {};
+		if (RuleIdx >= SpawnedInstancedMeshes.Num())
+		{
+			InstancerActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass());
+#if WITH_EDITOR
+			InstancerActor->SetActorLabel("SplineInstantiatorInstancer" + FString::FromInt(RuleIdx));
+#endif
+			if (InstancerActor)
+			{
+				SpawnedInstancedMeshes.Add(InstancerActor);
+				UInstancedStaticMeshComponent* NewMeshComp = NewObject<UInstancedStaticMeshComponent>(
+					InstancerActor);
+				NewMeshComp->SetMaterial(0, Rule.Material);
+				NewMeshComp->SetOverlayMaterial(Rule.OverlayMaterial);
+				NewMeshComp->RegisterComponent();
+				InstancerActor->SetRootComponent(NewMeshComp);
+				InstancerActor->AttachToActor(this->GetOwner(),
+				                              FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+			}
+		}
+		else
+		{
+			InstancerActor = SpawnedInstancedMeshes[RuleIdx];
+		}
+
+		if (InstancerActor)
+		{
+			FMatrix Rotation{
+				Sample.Bitangent.GetSafeNormal(),
+				Sample.Tangent.GetSafeNormal(),
+				Sample.Reference.GetSafeNormal(),
+				FVector::ZeroVector
+			};
+
+			FQuat FinalRotation = Rotation.ToQuat() * ModdedRule.RotationOffset.Quaternion();
+
+			FTransform Transform;
+			FVector FinalPosition = Sample.Position + Rotation.TransformPosition(ModdedRule.Offset);
+			Transform.SetComponents(FinalRotation.GetNormalized(), FinalPosition, ModdedRule.Scale);
+
+			if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
+			{
+				InstancerComp->SetStaticMesh(ModdedRule.Mesh);
+				InstancerComp->AddInstance(Transform, false);
+			}
+		}
+	}
+}
+
+
 void USplineToolkitInstantiator::RegenerateInternal()
 {
 	bRegenerate = false;
@@ -93,7 +199,7 @@ void USplineToolkitInstantiator::RegenerateInternal()
 	// And I'm kinda lazy while writing this at midnight...
 	Clear();
 
-	if (!this->Ruleset->IsValidLowLevelFast())
+	if (!this->Ruleset || !this->Ruleset->IsValidLowLevelFast())
 		return;
 
 	const auto* Solver = GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
@@ -110,94 +216,7 @@ void USplineToolkitInstantiator::RegenerateInternal()
 	// Go over each rule
 	for (const auto& Rule : this->Ruleset->InstantiationRules)
 	{
-		// Loop over the spline at a set distance of precision. Applying the rules at each point
-		for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += fmax(Rule.StepPrecision, 1.0f))
-		{
-			FSplineToolkitStepContext Context{SplineComponent, CurrentDist};
-
-			FSplineToolkitInstantiationRule ModdedRule = Rule;
-			for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
-			{
-				if (!Modifier) continue;
-				ModdedRule = Modifier->ModifyInstantiationStep(Context, ModdedRule);
-			}
-
-			// Check if enabled (Can be changed by modifier, so checking each step)
-			if (!ModdedRule.Enabled)
-				continue;
-
-			// Check if it's in an intersection
-			if (Solver)
-			{
-				bool bFound = false;
-				for (const auto& Collision : Solver->Collisions)
-				{
-					if (this->IgnoreIntersectCutouts.Contains(TPair<int32, const FSplineToolkitSplineIntersection*>{RuleIdx, &Collision}))
-						continue;
-					if (FMath::IsWithin(CurrentDist, Collision.DistanceMin, Collision.DistanceMax))
-					{
-						bFound = true;
-						break;
-					}
-				}
-				if (bFound)
-					continue;
-			}
-
-			// Check if spacing is reached
-			const float Offset = fmodf(CurrentDist, ModdedRule.Spacing);
-			if (Offset >= ModdedRule.StepPrecision)
-				continue;
-
-			auto Sample = RmfSampler->GetSampleAtDistance(CurrentDist);
-
-			TObjectPtr<AActor> InstancerActor = {};
-			if (RuleIdx >= SpawnedInstancedMeshes.Num())
-			{
-				InstancerActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass());
-#if WITH_EDITOR
-				InstancerActor->SetActorLabel("SplineInstantiatorInstancer" + FString::FromInt(RuleIdx));
-#endif
-				if (InstancerActor)
-				{
-					SpawnedInstancedMeshes.Add(InstancerActor);
-					UInstancedStaticMeshComponent* NewMeshComp = NewObject<UInstancedStaticMeshComponent>(
-						InstancerActor);
-					NewMeshComp->SetMaterial(0, Rule.Material);
-					NewMeshComp->SetOverlayMaterial(Rule.OverlayMaterial);
-					NewMeshComp->RegisterComponent();
-					InstancerActor->SetRootComponent(NewMeshComp);
-					InstancerActor->AttachToActor(this->GetOwner(),
-					                              FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-				}
-			}
-			else
-			{
-				InstancerActor = SpawnedInstancedMeshes[RuleIdx];
-			}
-
-			if (InstancerActor)
-			{
-				FMatrix Rotation{
-					Sample.Bitangent.GetSafeNormal(),
-					Sample.Tangent.GetSafeNormal(),
-					Sample.Reference.GetSafeNormal(),
-					FVector::ZeroVector
-				};
-				
-				FQuat FinalRotation = Rotation.ToQuat() * ModdedRule.RotationOffset.Quaternion();
-				
-				FTransform Transform;
-				FVector FinalPosition = Sample.Position + Rotation.TransformPosition(ModdedRule.Offset);
-				Transform.SetComponents(FinalRotation.GetNormalized(), FinalPosition, ModdedRule.Scale);
-
-				if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
-				{
-					InstancerComp->SetStaticMesh(ModdedRule.Mesh);
-					InstancerComp->AddInstance(Transform, false);
-				}
-			}
-		}
+		RegenerateRule(Rule, RuleIdx, TotalLen, RmfSampler, Solver);
 
 		++RuleIdx;
 	}

@@ -115,6 +115,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	USplineToolkitRuleset* Ruleset = nullptr;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
+	FSplineToolkitExtrusionOverrides Overrides;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	USplineComponent* SplineComponent = nullptr;
 

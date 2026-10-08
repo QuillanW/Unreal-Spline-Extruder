@@ -194,25 +194,50 @@ void USplineToolkitMeshExtruder::RegenerateInternal()
 	this->bRegenerate = false;
 	ClearConservative();
 
-	if (!this->Ruleset->IsValidLowLevelFast())
+	if (!IsValid(this->Ruleset) && !this->Overrides.Rule.IsSet())
 		return;
 
 	// This is a degenerate spline
 	if (SplineComponent->GetNumberOfSplinePoints() < 2)
 		return;
 
-	uint32 Ptr = 0;
-	for (const auto& Rule : this->Ruleset->ExtrusionRules)
+	if (this->Overrides.Rule.IsSet())
 	{
-		auto& Data = this->OutMeshes[Ptr];
-		ExtractOriginSlice(Rule.Mesh, Data);
+		const auto& Rule = this->Overrides.Rule.GetValue();
 
-		if (auto* MeshComponent = Data.MeshActor->FindComponentByClass<UProceduralMeshComponent>();
-			!Data.OriginSlice.IsEmpty() && MeshComponent)
+		this->OutMeshes.SetNum(1);
+
+		auto* MeshComponent = GetOwner()->FindComponentByClass<UProceduralMeshComponent>();
+		if (!MeshComponent)
 		{
-			ComputeMesh(Rule, Ptr, MeshComponent, Data);
+			MeshComponent = NewObject<UProceduralMeshComponent>(GetOwner(), NAME_None, RF_Transactional);
+			MeshComponent->CreationMethod = EComponentCreationMethod::Instance;
+			MeshComponent->SetupAttachment(GetOwner()->GetRootComponent());
+			MeshComponent->RegisterComponent();
+			GetOwner()->AddInstanceComponent(MeshComponent);
 		}
-		Ptr++;
+
+		this->OutMeshes[0].MeshActor = GetOwner();
+		this->OutMeshes[0].ProceduralMeshComponent = MeshComponent;
+
+		ExtractOriginSlice(Rule.Mesh, this->OutMeshes[0]);
+		ComputeMesh(Rule, this->Overrides.RuleIndex.Get(0), MeshComponent, this->OutMeshes[0]);
+	}
+	else
+	{
+		uint32 Ptr = 0;
+		for (const auto& Rule : this->Ruleset->ExtrusionRules)
+		{
+			auto& Data = this->OutMeshes[Ptr];
+			ExtractOriginSlice(Rule.Mesh, Data);
+
+			if (auto* MeshComponent = Data.MeshActor->FindComponentByClass<UProceduralMeshComponent>();
+				!Data.OriginSlice.IsEmpty() && MeshComponent)
+			{
+				ComputeMesh(Rule, Ptr, MeshComponent, Data);
+			}
+			Ptr++;
+		}
 	}
 }
 
@@ -275,7 +300,7 @@ void USplineToolkitMeshExtruder::ClearConservative()
 	}
 
 	// Skip on garbage data
-	if (!this->Ruleset->IsValidLowLevelFast())
+	if (!this->Ruleset || !this->Ruleset->IsValidLowLevelFast())
 		return;
 
 	// Then, shrink or grow to fit
@@ -300,7 +325,7 @@ void USplineToolkitMeshExtruder::ClearConservative()
 
 void USplineToolkitMeshExtruder::ExtractOriginSlice(UStaticMesh* InputMesh, FSplineToolkitExtruderMeshData& Data) const
 {
-	if (!InputMesh->IsValidLowLevelFast())
+	if (!InputMesh || !InputMesh->IsValidLowLevelFast())
 		return;
 
 	Data.LinkedMesh = InputMesh;
@@ -656,6 +681,15 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 		OutRmfSample = RmfSampler->GetNextSampleFromDistance(OutRmfSample.Distance);
 	}
 
+	// Update the distance properly
+	float Distance = OutRmfSample.Distance;
+	if (this->Overrides.Distance.IsSet())
+	{
+		const auto Override = this->Overrides.Distance.GetValue();
+		const float Time = this->SplineComponent->GetTimeAtDistanceAlongSpline(Distance);
+		Distance = FMath::Lerp(Override.X, Override.Y, Time);
+	}
+
 	if (IsValid(Solver) && !bCalledFromSelf)
 	{
 		// Determine the next RMF sample
@@ -679,7 +713,8 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 		for (auto Iter = Solver->Collisions.begin(); Iter != Solver->Collisions.end(); ++Iter)
 		{
 			const auto& Cut = *Iter;
-			if (this->IgnoreIntersectCutouts.Contains(TPair<int32, const FSplineToolkitSplineIntersection*>{RuleIndex, &Cut}))
+			if (this->IgnoreIntersectCutouts.Contains(
+				TPair<int32, const FSplineToolkitSplineIntersection*>{RuleIndex, &Cut}))
 				continue;
 
 			if (FMath::IsWithin(OutRmfSample.Distance, Cut.DistanceMin, Cut.DistanceMax))
@@ -699,7 +734,7 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 		}
 	}
 
-	if (FMath::Abs(OutRmfSample.Distance - OldSample.Distance) < KINDA_SMALL_NUMBER)
+	if (!bCalledFromSelf && FMath::Abs(OutRmfSample.Distance - OldSample.Distance) < KINDA_SMALL_NUMBER)
 	{
 		OutDontConnect = true;
 		return OutRmfSample != RmfSampler->Samples.Last();
@@ -707,12 +742,23 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 
 	const float TotalSplineDistance = RmfSampler->Samples.Last().Distance;
 
-	FSplineToolkitStepContext Context{SplineComponent, OutRmfSample.Distance};
 	FSplineToolkitExtrusionRule ModdedRule = Rule;
-	for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
+	if (this->Overrides.Size.IsSet())
 	{
-		if (!Modifier) continue;
-		ModdedRule = Modifier->ModifyExtrusionStep(Context, ModdedRule);
+		const float Time = this->SplineComponent->GetTimeAtDistanceAlongSpline(OutRmfSample.Distance);
+		ModdedRule.Scale = FMath::Lerp(this->Overrides.Size->Start, this->Overrides.Size->End, Time);
+	}
+	else
+	{
+		FSplineToolkitStepContext Context{
+			this->Overrides.ModifierSpline ? this->Overrides.ModifierSpline : this->SplineComponent,
+			Distance
+		};
+		for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
+		{
+			if (!Modifier) continue;
+			ModdedRule = Modifier->ModifyExtrusionStep(Context, ModdedRule);
+		}
 	}
 
 	// Instantiate a slice per sample

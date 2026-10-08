@@ -20,6 +20,30 @@ float GetCurvatureAtDistanceAlongSpline(USplineComponent* Spline, float Distance
 
 class USplineToolkitRulesetModifierBase;
 
+/// Utility struct
+USTRUCT(BlueprintType)
+struct FVector2DRange
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector2D Start;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector2D End;
+};
+
+/// Utility struct
+USTRUCT(BlueprintType)
+struct FVectorRange
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector Start;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector End;
+};
+
 /// An anchor used by rules
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitAnchor
@@ -162,6 +186,60 @@ public:
 
 
 // ===============================
+//      RULE OVERRIDE DATA
+// ===============================
+
+USTRUCT(BlueprintType)
+struct FSplineToolkitInstantiationOverrides
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (ToolTip = "Overrides the spline used for modifier calculation"))
+	USplineComponent* ModifierSpline = nullptr;
+
+	// Unreal really wants this to not be a simple TPair. Have it your way then and use two variables. How readable...
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit",
+		meta = (ToolTip = "Overrides the extruder to only draw one rule"))
+	TOptional<FSplineToolkitInstantiationRule> Rule = NullOpt;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit",
+		meta = (ToolTip = "Overrides the extruder to only draw one rule"))
+	TOptional<int32> RuleIndex = NullOpt;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit",
+		meta = (ToolTip = "Only used internally."))
+	TOptional<FVector2f> Distance = NullOpt;
+};
+
+USTRUCT(BlueprintType)
+struct FSplineToolkitExtrusionOverrides
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (ToolTip = "Overrides the spline used for modifier calculation"))
+	USplineComponent* ModifierSpline = nullptr;
+
+	// Unreal really wants this to not be a simple TPair. Have it your way then and use two variables. How readable...
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (ToolTip = "Overrides the extruder to only draw one rule"))
+	TOptional<FSplineToolkitExtrusionRule> Rule = NullOpt;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (ToolTip = "Overrides the extruder to only draw one rule"))
+	TOptional<int32> RuleIndex = NullOpt;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (ToolTip = "Sets the size range. Overrides any enabled modifiers"))
+	TOptional<FVector2DRange> Size = NullOpt;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly,
+		meta = (ToolTip = "Only used internally."))
+	TOptional<FVector2f> Distance = NullOpt;
+};
+
+// ===============================
 //         FILLING RULES
 // ===============================
 
@@ -200,6 +278,8 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRuleParams
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float OffsetDistance = 0.f;
+
+	bool operator==(const FSplineToolkitFillingConnectRuleParams&) const = default;
 };
 
 
@@ -223,6 +303,9 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRule
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FSplineToolkitFillingConnectRuleParams End{};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 NumSamples = 32;
 };
 
 

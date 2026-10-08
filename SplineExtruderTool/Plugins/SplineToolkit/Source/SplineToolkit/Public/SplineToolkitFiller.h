@@ -42,6 +42,9 @@ public:
 
 private:
 
+	UPROPERTY()
+	TMap<int32, TObjectPtr<AActor>> SpawnedActors;
+
 	bool bRegenerate = false;
 
 	TArray<FVector> DebugData;
@@ -56,10 +59,16 @@ private:
 		USplineComponent* SplineA;
 		ESplineToolkitRuleType RuleTypeA = ESplineToolkitRuleType::INSTANTIATION;
 		uint8 RuleIndexA = 0;
+		// This is just here because GetLocationClosestToWorldLocation does not work properly
+		int32 PolyLineA;
+		float DistanceA = 0.f;
 
 		USplineComponent* SplineB;
 		ESplineToolkitRuleType RuleTypeB = ESplineToolkitRuleType::INSTANTIATION;
 		uint8 RuleIndexB = 0;
+		// This is just here because GetLocationClosestToWorldLocation does not work properly
+		int32 PolyLineB;
+		float DistanceB = 0.f;
 	};
 
 
@@ -78,10 +87,14 @@ private:
 	// Handles this edge case: User sets a rule to continue normally (from CUTOUT_START to CUTOUT_END on the same spline and rule)
 	static bool RuleContinuesNormally(const FSplineToolkitFillingConnectRule& Rule);
 
-	void RegenerateConnectRules(const FSplineToolkitSplineIntersection& Intersection, const FSplineToolkitFillingRules& Rules);
+	void RegenerateConnectRules(const TArray<FCollisionPoint>& Collisions, const FSplineToolkitSplineIntersection& Intersection, const
+	                            FSplineToolkitSplineIntersection& IntersectionB, int32
+	                            SplineIndex, const FSplineToolkitFillingRules& Rules);
 
-	void RegenerateConnectRule(const FSplineToolkitSplineIntersection& Intersection,
-	                           const FSplineToolkitFillingConnectRule& Rule, UClass* GeneratorClass);
+	void RegenerateConnectRule(const TArray<FCollisionPoint>& Collisions,
+	                           const FSplineToolkitSplineIntersection& Intersection, const FSplineToolkitSplineIntersection& IntersectionB, int32
+	                           SplineIndex, int32 RuleIndex, const FSplineToolkitFillingConnectRule& Rule, const void* GeneratorRule, UClass*
+	                           GeneratorClass);
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
