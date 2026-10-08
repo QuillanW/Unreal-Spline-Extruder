@@ -535,17 +535,23 @@ void USplineToolkitFiller::RegenerateConnectRule(const TArray<FCollisionPoint>& 
 		switch (Params.Type)
 		{
 		case EFillAnchorType::CUTOUT_START:
+		{
+			const float Distance = Intersect.DistanceMin + Params.OffsetDistance;
 			return TTuple<FVector, FVector, float>{
-				Spline->GetLocationAtDistanceAlongSpline(Intersect.DistanceMin, ESplineCoordinateSpace::World),
-				Spline->GetTangentAtDistanceAlongSpline(Intersect.DistanceMin, ESplineCoordinateSpace::World),
-				Intersect.DistanceMin
+				Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
+				Spline->GetTangentAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
+				Distance
 			};
+		}
 		case EFillAnchorType::CUTOUT_END:
+		{
+			const float Distance = Intersect.DistanceMax + Params.OffsetDistance;
 			return TTuple<FVector, FVector, float>{
-				Spline->GetLocationAtDistanceAlongSpline(Intersect.DistanceMax, ESplineCoordinateSpace::World),
-				Spline->GetTangentAtDistanceAlongSpline(Intersect.DistanceMax, ESplineCoordinateSpace::World),
-				Intersect.DistanceMax
+				Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
+				Spline->GetTangentAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
+				Distance
 			};
+		}
 		case EFillAnchorType::INTERSECT_RULE:
 		{
 			TArray<TPair<float, const FCollisionPoint*>> Candidates{};
@@ -589,6 +595,7 @@ void USplineToolkitFiller::RegenerateConnectRule(const TArray<FCollisionPoint>& 
 				if (bIsA || bIsB)
 					Distance = bIsA ? Candidate->DistanceA : Candidate->DistanceB;
 			}
+			Distance += Params.OffsetDistance;
 			return TTuple<FVector, FVector, float>{
 				Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
 				Spline->GetTangentAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
@@ -634,7 +641,8 @@ void USplineToolkitFiller::RegenerateConnectRule(const TArray<FCollisionPoint>& 
 	SplineComp->SetTangentAtSplinePoint(1, SplineArriveTangent, ESplineCoordinateSpace::World);
 
 	// Initialise the RMF sampler
-	AddComponent.operator()<USplineToolkitRmfSampler>();
+	auto* Sampler = AddComponent.operator()<USplineToolkitRmfSampler>();
+	Sampler->NumRmfSamples = Rule.NumSamples;
 
 	// Add the generators
 	if (GeneratorClass == USplineToolkitInstantiator::StaticClass())
