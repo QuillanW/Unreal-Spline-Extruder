@@ -7,16 +7,6 @@
 
 #define LOCTEXT_NAMESPACE "FSplineToolkitMapEditorModule"
 
-void FSplineToolkitMapEditorModule::StartupModule()
-{
-	//FEditorModeRegistry::Get().RegisterMode<USplineOnlyEdMode>(USplineOnlyEdMode::EM_SplineOnlyEdModeId, INVTEXT("Spline Only"), FSlateIcon(), true, 500);
-}
-
-void FSplineToolkitMapEditorModule::ShutdownModule()
-{
-	//FEditorModeRegistry::Get().UnregisterMode(USplineOnlyEdMode::EM_SplineOnlyEdModeId);
-}
-
 #undef LOCTEXT_NAMESPACE
 	
 IMPLEMENT_MODULE(FSplineToolkitMapEditorModule, SplineToolkitMapEditor)
@@ -36,7 +26,7 @@ void USplineOnlyEdMode::Exit()
 
 USplineOnlyEdMode::USplineOnlyEdMode()
 {
-	Info = FEditorModeInfo(EM_SplineOnlyEdModeId, INVTEXT("Spline Only"), FSlateIcon(), true);
+	Info = FEditorModeInfo(EM_SplineOnlyEdModeId, INVTEXT("Spline Editor"), FSlateIcon(FAppStyle::GetAppStyleSetName(), "ClassIcon.SplineComponent"), true);
 }
 
 static bool HasSpline(const AActor* Actor)

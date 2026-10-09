@@ -7,6 +7,7 @@
 #include "Tools/UEdMode.h"
 #include "SplineToolkitMapEditor.generated.h"
 
+// Widget helper forces the gizmo to be allowed enabled
 class FSplineWidgetHelper : public FLegacyEdModeWidgetHelper
 {
 public:
@@ -43,7 +44,6 @@ class FSplineToolkitMapEditorModule : public IModuleInterface
 {
 public:
 
-	/** IModuleInterface implementation */
-	virtual void StartupModule() override;
-	virtual void ShutdownModule() override;
+	virtual void StartupModule() override {}
+	virtual void ShutdownModule() override {}
 };
