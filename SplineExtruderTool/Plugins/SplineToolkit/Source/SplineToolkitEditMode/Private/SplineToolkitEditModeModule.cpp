@@ -2,7 +2,6 @@
 
 #include "SplineToolkitEditModeModule.h"
 
-#include "SplineToolkitEditExtension.h"
 #include "SplineToolkitEditModeEditorModeCommands.h"
 #include "UnrealEdGlobals.h"
 #include "Components/SplineComponent.h"
@@ -12,16 +11,6 @@
 
 void FSplineToolkitEditModeModule::StartupModule()
 {
-	if (GUnrealEd)
-	{
-		// Override the normal spline visualizer so we can use our modified version
-		GUnrealEd->UnregisterComponentVisualizer(USplineComponent::StaticClass()->GetFName());
-
-		SplineEditExtension = MakeShareable(new FSplineToolkitEditExtension());
-		GUnrealEd->RegisterComponentVisualizer(USplineComponent::StaticClass()->GetFName(), SplineEditExtension);
-		SplineEditExtension->OnRegister();
-	}
-	
 	FSplineToolkitEditModeEditorModeCommands::Register();
 }
 

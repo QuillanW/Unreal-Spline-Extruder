@@ -11,6 +11,7 @@
 #include "Engine/HitResult.h"
 
 #include "SceneManagement.h"
+#include "Selection.h"
 #include "UnrealEdGlobals.h"
 #include "BaseGizmos/CombinedTransformGizmo.h"
 #include "Components/SplineComponent.h"
@@ -108,40 +109,42 @@ FInputRayHit USplineToolkitEditModeInteractiveTool::CanBeginClickDragSequence(co
 
 
 void USplineToolkitEditModeInteractiveTool::OnClickPress(const FInputDeviceRay& ClickPos)
-{ 
-	IToolsContextQueriesAPI* Queries = GetToolManager()->GetContextQueriesAPI();
-	FViewport* Viewport = Queries->GetFocusedViewport();
-	if (!Viewport)
-	{
-		return;
-	}
-
-	FEditorViewportClient* ViewportClient = static_cast<FEditorViewportClient*>(Viewport->GetClient());
-
-	const int32 HitX = ClickPos.ScreenPosition.X;
-	const int32 HitY = ClickPos.ScreenPosition.Y;
-
-	HHitProxy* HitProxy = Viewport->GetHitProxy(HitX, HitY);
-	if (!HitProxy)
-	{
-		return;
-	}
-
-	FSceneViewFamilyContext ViewFamily(
-		FSceneViewFamily::ConstructionValues(Viewport, ViewportClient->GetScene(), ViewportClient->EngineShowFlags));
-	FSceneView* View = ViewportClient->CalcSceneView(&ViewFamily);
-
-	FViewportClick Click(View, ViewportClient, EKeys::LeftMouseButton, IE_Pressed, HitX, HitY);
-
-	if (GUnrealEd->ComponentVisManager.HandleClick(ViewportClient, HitProxy, Click))
-	{
-		return;
-	}
-	
+{
+	// if (GEditor->GetSelectedComponents()->Num() > 0) return;
+	//
+	// IToolsContextQueriesAPI* Queries = GetToolManager()->GetContextQueriesAPI();
+	// FViewport* Viewport = Queries->GetFocusedViewport();
+	// if (!Viewport)
+	// {
+	// 	return;
+	// }
+	//
+	// FEditorViewportClient* ViewportClient = static_cast<FEditorViewportClient*>(Viewport->GetClient());
+	//
+	// const int32 HitX = ClickPos.ScreenPosition.X;
+	// const int32 HitY = ClickPos.ScreenPosition.Y;
+	//
+	// HHitProxy* HitProxy = Viewport->GetHitProxy(HitX, HitY);
+	// if (!HitProxy)
+	// {
+	// 	return;
+	// }
+	//
+	// FSceneViewFamilyContext ViewFamily(
+	// 	FSceneViewFamily::ConstructionValues(Viewport, ViewportClient->GetScene(), ViewportClient->EngineShowFlags));
+	// FSceneView* View = ViewportClient->CalcSceneView(&ViewFamily);
+	//
+	// FViewportClick Click(View, ViewportClient, EKeys::LeftMouseButton, IE_Pressed, HitX, HitY);
+	//
+	// if (GUnrealEd->ComponentVisManager.HandleClick(ViewportClient, HitProxy, Click))
+	// {
+	// 	return;
+	// }
+	//
 	// GEditor->SelectNone(false, true, false);
 	//
 	// FVector ClickedPoint;
-	// FindRayHit(PressPos.WorldRay, ClickedPoint);
+	// FindRayHit(ClickPos.WorldRay, ClickedPoint);
 	//
 	// float ClosestDistance = 10000.0f;
 	// USplineComponent* ClosestComp = nullptr;
@@ -178,33 +181,7 @@ void USplineToolkitEditModeInteractiveTool::OnClickPress(const FInputDeviceRay& 
 	//
 	// Properties->EndPoint = Point.Position;
 	//
-	// // GEditor->SelectComponent(ClosestComp, true, true, true);
-	// //
-	// // auto Visualizer = StaticCastSharedPtr<FSplineComponentVisualizer>(GUnrealEd->FindComponentVisualizer(USplineComponent::StaticClass()));
-	// //
-	// // Visualizer->HandleSelectAllSplinePoints(ClosestComp);
-	//
-	// UCombinedTransformGizmo* Gizmo = GizmoManager->Create3AxisTransformGizmo();
-	//
-	// EditingProxy.SetTransform({Point.Rotation, Point.Position, Point.Scale});
-	// Gizmo->SetActiveTarget(&EditingProxy);
-	//
-	// // Gizmo->SetNewGizmoTransform({Point.Rotation, Point.Position, Point.Scale}, false);
-	//
-	// Gizmo->ActiveTarget->OnTransformChanged.AddUObject(this, &USplineToolkitEditModeInteractiveTool::UpdateCurrentSplinePoint);
-	//
-	// // for (FSelectionIterator Iter(*SelectedInfo); Iter; ++Iter)
-	// // {
-	// // 	
-	// // 	AActor* Actor = Cast<AActor>(*Iter);
-	// // 	if (Actor)
-	// // 	{
-	// // 		if (Actor->GetComponentByClass<USplineComponent>())
-	// // 			UE_LOG(LogTemp, Warning, TEXT("SPLINE SELECTED"));
-	// // 	}
-	// // }
-	// 	
-	// // determine whether we are moving first or second point for the drag sequence
+	// GEditor->SelectComponent(ClosestComp, true, true, true);
 }
 
 
