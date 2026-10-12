@@ -2,10 +2,14 @@
 
 #pragma once
 #include "Selection.h"
+#include "Components/SplineComponent.h"
 #include "Modules/ModuleManager.h"
 #include "Tools/LegacyEdModeWidgetHelpers.h"
 #include "Tools/UEdMode.h"
+#include "Widgets/Input/SButton.h"
 #include "SplineToolkitMapEditor.generated.h"
+
+enum class ESplineToolkitEditorModes : uint8 { None, Select, Connect, Disconnect, UpdateRuleset };
 
 // Widget helper forces the gizmo to be allowed enabled
 class FSplineWidgetHelper : public FLegacyEdModeWidgetHelper
@@ -16,28 +20,62 @@ public:
 	virtual bool ShouldDrawWidget() const override { return GEditor->GetSelectedActors()->Num() > 0; }
 };
 
-
 UCLASS()
-class USplineOnlyEdMode : public UBaseLegacyWidgetEdMode
+class USplineToolkitEditMode : public UBaseLegacyWidgetEdMode
 {
 	GENERATED_BODY()
 public:
-	const static FEditorModeID EM_SplineOnlyEdModeId;
+	const static FEditorModeID EM_USplineToolkitEditModeID;
 
-	USplineOnlyEdMode();
+	USplineToolkitEditMode();
 
 	virtual void Enter() override;
 	virtual void Exit() override;
+	
+	virtual bool HandleClick(FEditorViewportClient* InViewportClient, HHitProxy* HitProxy, const FViewportClick& Click) override;
+	virtual bool InputKey(FEditorViewportClient* ViewportClient, FViewport* Viewport, FKey Key, EInputEvent Event) override;
 
+	virtual bool UsesToolkits() const override { return true; }
+	
 	virtual bool IsSelectionAllowed(AActor* InActor, bool bInSelection) const override;
 	virtual bool IsSelectionDisallowed(AActor* InActor, bool bInSelection) const override;
-	
+
+	ESplineToolkitEditorModes CurrentEditMode = ESplineToolkitEditorModes::Select;
 	
 protected:
+	virtual void CreateToolkit() override;
+	
 	virtual TSharedRef<FLegacyEdModeWidgetHelper> CreateWidgetHelper() override
 	{
 		return MakeShared<FSplineWidgetHelper>();
 	}
+	
+	virtual void SelectClosestSpline(FVector ClickPos);
+	virtual void ConnectSplines(FVector ClickPos);
+	virtual void DisconnectSplines(FVector ClickPos);
+	virtual void UpdateRuleset(FVector ClickPos);
+	
+	USplineComponent* SelectedSpline = nullptr;
+	USplineComponent* LastSelectedSpline = nullptr;
+	
+	TSharedPtr<SWidget> ViewportPanel;
+};
+
+// Toolkit defines the mode selection buttons
+class FSplineToolkitModeToolkit : public FModeToolkit
+{
+public:
+	explicit FSplineToolkitModeToolkit(USplineToolkitEditMode* InMode) : Mode(InMode) {}
+
+	virtual FName GetToolkitFName() const override { return "SplineToolkitMode"; }
+	virtual FText GetBaseToolkitName() const override { return INVTEXT("Spline Toolkit"); }
+
+	virtual TSharedPtr<SWidget> GetInlineContent() const override;
+
+private:
+	TWeakObjectPtr<USplineToolkitEditMode> Mode;
+
+	TSharedRef<SWidget> MakeButton(FText Label, ESplineToolkitEditorModes Action) const;
 };
 
 class FSplineToolkitMapEditorModule : public IModuleInterface
