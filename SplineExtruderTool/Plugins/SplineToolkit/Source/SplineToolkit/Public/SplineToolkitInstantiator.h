@@ -66,6 +66,9 @@ public:
 	// Only used internally
 	bool bIgnoreIntersectCutouts = false;
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	TArray<FSplineToolkitAnchor> Anchors;
+	
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif

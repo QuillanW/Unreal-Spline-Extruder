@@ -32,7 +32,17 @@ public:
 	FVector Offset;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FString Type;
+	FName Type;
+	
+	// Only set once spawned
+	FVector SpawnedLocalLocation = {};
+};
+
+/// Modifier threshold type
+UENUM(BlueprintType)
+enum class ESplineToolkitStretchConnectionType : uint8 {
+	Sequential UMETA(DisplayName = "Sequential", ToolTip = "Connect from the first to the next, to the next, etc."),
+	Closest UMETA(DisplayName = "Closest", ToolTip = "Connect to the closest point it can find regardless of direction"),
 };
 
 
@@ -68,7 +78,7 @@ public:
 	TObjectPtr<class UMaterialInterface> OverlayMaterial;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float StepPrecision = 1.0f;
+	float StepPrecision = 10.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool Enabled = true;
@@ -84,7 +94,10 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector Scale = FVector::OneVector;
-
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FSplineToolkitAnchor> Anchors = {};
+	
 	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
 	TArray<TObjectPtr<USplineToolkitRulesetModifierBase>> Modifiers;
 };
@@ -136,15 +149,39 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UStaticMesh* Mesh = nullptr;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<class UMaterialInterface> Material;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FString StartAnchorType;
+	TObjectPtr<class UMaterialInterface> OverlayMaterial;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FString EndAnchorType;
+	FName StartAnchorType;
 
-	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
-	TArray<TObjectPtr<USplineToolkitRulesetModifierBase>> Modifiers;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FName EndAnchorType;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float bRollOffset = 0.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector2D Scale = FVector2D::One();
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	ESplineToolkitStretchConnectionType ConnectionType = ESplineToolkitStretchConnectionType::Sequential;
+
+	// Only used when ConnectionType is set to Closest
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MaxDistance = 1000.0f;
+	
+	// Only used when ConnectionType is set to Closest
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MinDistance = 100.0f;
+	
+	// Only used when ConnectionType is set to Closest
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 MaxConnectCount = 1;
 };
 
 
