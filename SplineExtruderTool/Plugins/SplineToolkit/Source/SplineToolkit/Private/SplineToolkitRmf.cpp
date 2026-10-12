@@ -107,8 +107,8 @@ void USplineToolkitRmfSampler::Regenerate()
 	FSplineToolkitRmfSample PrevSample = {
 		.Position = SplineComponent->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::Local),
 		.Distance = 0.0f,
-		.Tangent = SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::Local).GetSafeNormal(),
-		.Reference = SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::Local).GetSafeNormal(),
+		.Tangent = SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
+		.Reference = SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
 		.Roll = StartRoll
 	};
 
@@ -135,7 +135,7 @@ FSplineToolkitRmfSample USplineToolkitRmfSampler::InternalGetSampleAtDistance(co
 		Distance, ESplineCoordinateSpace::Local);
 
 	const FVector Tangent = this->SplineComponent->GetTangentAtDistanceAlongSpline(
-		                              Distance, ESplineCoordinateSpace::Local).
+		                              Distance, ESplineCoordinateSpace::World).
 	                              GetSafeNormal();
 
 	// Perform the first reflection R_1

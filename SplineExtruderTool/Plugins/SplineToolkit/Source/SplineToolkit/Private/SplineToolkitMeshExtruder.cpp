@@ -690,6 +690,7 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 		Distance = FMath::Lerp(Override.X, Override.Y, Time);
 	}
 
+	// Handle intersection cutting
 	if (IsValid(Solver) && !bCalledFromSelf)
 	{
 		// Determine the next RMF sample
@@ -765,29 +766,71 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 	OutVertexPtr = DrawData.VertexTop();
 	DrawData.InsertVertices(Data.OriginSlice, OutVertexPtr);
 
-	// Create a transform matrix
+	// First make the normal rotation matrix
+	FVector Tangent = OutRmfSample.Tangent.GetSafeNormal();
 	FMatrix Rotation{
 		OutRmfSample.Bitangent.GetSafeNormal(),
-		OutRmfSample.Tangent.GetSafeNormal(),
+		Tangent,
 		OutRmfSample.Reference.GetSafeNormal(),
 		FVector::ZeroVector
 	};
-	FTransform Transform;
+
+	FMatrix TransformMatrix = FTransform{Rotation.ToQuat(), OutRmfSample.Position}.ToMatrixNoScale();
 
 	if (Rotation.ContainsNaN())
 		return true;
 
-	Transform.SetComponents(Rotation.ToQuat(), OutRmfSample.Position, FVector::OneVector);
+	// Get the tangent override
+	FVector TangentOverride = FVector::ZeroVector;
+	if (OutRmfSample == RmfSampler->Samples[0] && this->Overrides.StartTangent)
+		TangentOverride = this->Overrides.StartTangent->GetSafeNormal();
+	else if (OutRmfSample == RmfSampler->Samples.Last() && this->Overrides.EndTangent)
+		TangentOverride = this->Overrides.EndTangent->GetSafeNormal();
+
+	// Flip the tangent override when will flip the geometry around
+	if (!TangentOverride.IsNearlyZero() && TangentOverride.Dot(Tangent) < 0.f)
+		TangentOverride *= -1.f;
+
+	// Make a matrix for the tangent override
+	FMatrix TangentOverrideRotation = FMatrix::Identity;
+	if (!TangentOverride.IsNearlyZero())
+	{
+		// Made with Claude. I've already lost all motivation in this terrible project
+		const FVector Y = TangentOverride;
+		FVector Z = Rotation.GetScaledAxis(EAxis::Z);
+		Z = (Z - (Z | Y) * Y).GetSafeNormal();           // Gram-Schmidt reference against override
+		if (Z.IsNearlyZero())                             // override parallel to reference
+		{
+			const FVector X0 = Rotation.GetScaledAxis(EAxis::X);
+			Z = (X0 - (X0 | Y) * Y).GetSafeNormal();
+		}
+		const FVector X = Y ^ Z;                          // same handedness as your RMF frame
+		const FMatrix OverriddenFrame(X, Y, Z, FVector::ZeroVector);
+
+		TangentOverrideRotation = OverriddenFrame * Rotation.GetTransposed();
+	}
+
+	// First transform all vertices into the new tangent
+	int32 VertPtr = OutVertexPtr;
+	int32 IterEnd = VertPtr + Data.OriginSlice.VertexNum();
+	for (; VertPtr < IterEnd; ++VertPtr)
+	{
+		DrawData.Positions[VertPtr] = TangentOverrideRotation.TransformPosition(
+			DrawData.Positions[VertPtr] * FVector{ModdedRule.Scale.X, 1.f, ModdedRule.Scale.Y});
+		DrawData.Normals[VertPtr] = TangentOverrideRotation.TransformVector(DrawData.Normals[VertPtr]);
+		DrawData.Tangents[VertPtr].TangentX = TangentOverrideRotation.TransformVector(
+			DrawData.Tangents[VertPtr].TangentX);
+	}
 
 	// Transform all vertices with this matrix
-	const int32 IterEnd = OutVertexPtr + Data.OriginSlice.VertexNum();
+	IterEnd = OutVertexPtr + Data.OriginSlice.VertexNum();
 	for (; OutVertexPtr < IterEnd; ++OutVertexPtr)
 	{
-		DrawData.Positions[OutVertexPtr] = Transform.TransformPosition(
-			(DrawData.Positions[OutVertexPtr] * FVector{ModdedRule.Scale.X, 1.f, ModdedRule.Scale.Y}) + ModdedRule.
-			Offset);
-		DrawData.Normals[OutVertexPtr] = Transform.TransformVector(DrawData.Normals[OutVertexPtr]);
-		DrawData.Tangents[OutVertexPtr].TangentX = Transform.TransformVector(DrawData.Tangents[OutVertexPtr].TangentX);
+		DrawData.Positions[OutVertexPtr] = TransformMatrix.TransformPosition(
+			DrawData.Positions[OutVertexPtr] + ModdedRule.Offset);
+		DrawData.Normals[OutVertexPtr] = TransformMatrix.TransformVector(DrawData.Normals[OutVertexPtr]);
+		DrawData.Tangents[OutVertexPtr].TangentX = TransformMatrix.TransformVector(
+			DrawData.Tangents[OutVertexPtr].TangentX);
 		// Set UVs to distance / totalDistance
 		DrawData.Uv0[OutVertexPtr].Y = (OutRmfSample.Distance / TotalSplineDistance) * ModdedRule.UvScale;
 	}

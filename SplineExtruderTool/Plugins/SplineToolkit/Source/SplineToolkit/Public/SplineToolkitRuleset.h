@@ -32,6 +32,7 @@ struct FVector2DRange
 	FVector2D End;
 };
 
+
 /// Utility struct
 USTRUCT(BlueprintType)
 struct FVectorRange
@@ -43,6 +44,7 @@ struct FVectorRange
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector End;
 };
+
 
 /// An anchor used by rules
 USTRUCT(BlueprintType)
@@ -99,13 +101,13 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float Spacing = 100.0f;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector Offset = FVector::ZeroVector;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FRotator RotationOffset = FRotator::ZeroRotator;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector Scale = FVector::OneVector;
 
@@ -212,6 +214,7 @@ struct FSplineToolkitInstantiationOverrides
 	TOptional<FVector2f> Distance = NullOpt;
 };
 
+
 USTRUCT(BlueprintType)
 struct FSplineToolkitExtrusionOverrides
 {
@@ -237,7 +240,16 @@ struct FSplineToolkitExtrusionOverrides
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly,
 		meta = (ToolTip = "Only used internally."))
 	TOptional<FVector2f> Distance = NullOpt;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly,
+		meta = (ToolTip = "Only used internally. Only applied in the extruder."))
+	TOptional<FVector> StartTangent = NullOpt;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly,
+		meta = (ToolTip = "Only used internally. Only applied in the extruder."))
+	TOptional<FVector> EndTangent = NullOpt;
 };
+
 
 // ===============================
 //         FILLING RULES
@@ -250,6 +262,16 @@ enum class EFillAnchorType : uint8
 	CUTOUT_START UMETA(DisplayName = "Start of cutout region"),
 	CUTOUT_END UMETA(DisplayName = "End of cutout region"),
 	INTERSECT_RULE UMETA(DisplayName = "Intersection with a rule"),
+};
+
+
+// Where to point the last sample of the connection rule to
+UENUM()
+enum class EConnectionTangentDirection
+{
+	UNAFFECTED UMETA(DisplayName = "Unaffected"),
+	FACE_OTHER_SPLINE UMETA(DisplayName = "Face Other Spline"),
+	HALFWAY UMETA(DisplayName = "Halfway"),
 };
 
 
@@ -275,6 +297,11 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRuleParams
 		meta = (EditCondition = "Type == EFillAnchorType::INTERSECT_RULE", EditConditionHides, ToolTip =
 			"Counts from the closest intersection point if there are multiple."))
 	uint8 IntersectionIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (EditCondition = "Type == EFillAnchorType::INTERSECT_RULE", EditConditionHides, ToolTip =
+			"Where to point the tangent to of the last sample."))
+	EConnectionTangentDirection TangentDirection = EConnectionTangentDirection::UNAFFECTED;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float OffsetDistance = 0.f;
@@ -339,7 +366,8 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingRules
 	float AngleMax = 180.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite,
-		meta = (ToolTip = "Set to anything other than -1 to filter only when any rule overlaps a certain amount of times"))
+		meta = (ToolTip =
+			"Set to anything other than -1 to filter only when any rule overlaps a certain amount of times"))
 	int32 IntersectCount = -1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)

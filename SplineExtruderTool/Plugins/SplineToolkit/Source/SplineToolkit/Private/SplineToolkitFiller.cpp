@@ -288,16 +288,20 @@ TArray<USplineToolkitFiller::FCollisionPoint> USplineToolkitFiller::DetermineCol
 							{
 								const FVector D = S1 - S0;
 								const float LenSq = D.SizeSquared();
-								return LenSq > KINDA_SMALL_NUMBER ? FMath::Clamp(FVector::DotProduct(P - S0, D) / LenSq, 0.f, 1.f) : 0.f;
+								return LenSq > KINDA_SMALL_NUMBER
+									       ? FMath::Clamp(FVector::DotProduct(P - S0, D) / LenSq, 0.f, 1.f)
+									       : 0.f;
 							};
 
 							OutHits.Add(FHitInfo{
 								.Midpoint = MidPoint,
 								.DistanceSquared = DistSq,
 								.PolyLineA = I,
-								.HitSampleA = SampleA + SegFraction(ClosestOnA, PolyA.Line[SampleA], PolyA.Line[SampleA + 1]),
+								.HitSampleA = SampleA + SegFraction(ClosestOnA, PolyA.Line[SampleA],
+								                                    PolyA.Line[SampleA + 1]),
 								.PolyLineB = J,
-								.HitSampleB = SampleB + SegFraction(ClosestOnB, PolyB.Line[SampleB], PolyB.Line[SampleB + 1]),
+								.HitSampleB = SampleB + SegFraction(ClosestOnB, PolyB.Line[SampleB],
+								                                    PolyB.Line[SampleB + 1]),
 							});
 						}
 					}
@@ -389,11 +393,13 @@ TArray<USplineToolkitFiller::FCollisionPoint> USplineToolkitFiller::DetermineCol
 
 		Collision.DistanceA /= Collision.TotalWeight;
 		const auto& DistancesA = PolyLines[Collision.PolyLineA].DistanceRange;
-		Collision.DistanceA = FMath::Lerp(DistancesA.X, DistancesA.Y, Collision.DistanceA / static_cast<float>(NumSamples - 1));
+		Collision.DistanceA = FMath::Lerp(DistancesA.X, DistancesA.Y,
+		                                  Collision.DistanceA / static_cast<float>(NumSamples - 1));
 
 		Collision.DistanceB /= Collision.TotalWeight;
 		const auto& DistancesB = PolyLines[Collision.PolyLineB].DistanceRange;
-		Collision.DistanceB = FMath::Lerp(DistancesB.X, DistancesB.Y, Collision.DistanceB / static_cast<float>(NumSamples - 1));
+		Collision.DistanceB = FMath::Lerp(DistancesB.X, DistancesB.Y,
+		                                  Collision.DistanceB / static_cast<float>(NumSamples - 1));
 	}
 
 	return Result;
@@ -462,6 +468,103 @@ void USplineToolkitFiller::RegenerateConnectRules(const TArray<FCollisionPoint>&
 }
 
 
+USplineToolkitFiller::FSplineNodeData USplineToolkitFiller::GetPositionTangentForNode(
+	const TArray<FCollisionPoint>& Collisions, const FSplineToolkitSplineIntersection& Intersection,
+	const FSplineToolkitSplineIntersection& IntersectionB, int32 SplineIndex,
+	const FSplineToolkitFillingConnectRule& Rule, const FSplineToolkitFillingConnectRuleParams& Params,
+	const TOptional<FVector>& Check)
+{
+	const FSplineToolkitSplineIntersection& Intersect = Rule.SplineIndex == SplineIndex
+		                                                    ? Intersection
+		                                                    : IntersectionB;
+	USplineComponent* Spline = Rule.SplineIndex == SplineIndex ? this->SplineComponent : Intersection.Other;
+
+	auto* Sampler = Spline->GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
+	if (!Sampler)
+		return FSplineNodeData{};
+
+	switch (Params.Type)
+	{
+	case EFillAnchorType::CUTOUT_START:
+	{
+		const float Distance = Intersect.DistanceMin + Params.OffsetDistance;
+		return FSplineNodeData{
+			Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
+			Spline->GetTangentAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
+			Distance,
+			0.f // Only used when intersecting a rule
+		};
+	}
+	case EFillAnchorType::CUTOUT_END:
+	{
+		const float Distance = Intersect.DistanceMax + Params.OffsetDistance;
+		return FSplineNodeData{
+			Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
+			Spline->GetTangentAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
+			Distance,
+			0.f // Only used when intersecting a rule
+		};
+	}
+	case EFillAnchorType::INTERSECT_RULE:
+	{
+		TArray<TPair<float, const FCollisionPoint*>> Candidates{};
+
+		for (const auto& Collision : Collisions)
+		{
+			const bool bIsA = Collision.SplineA == Spline;
+			const bool bIsB = Collision.SplineB == Spline;
+			if (!bIsA && !bIsB)
+				continue;
+
+			// Rule on the side of the spline we're anchoring to
+			const ESplineToolkitRuleType ThisType = bIsA ? Collision.RuleTypeA : Collision.RuleTypeB;
+			const int32 ThisIndex = bIsA ? Collision.RuleIndexA : Collision.RuleIndexB;
+			const ESplineToolkitRuleType CheckType = bIsB ? Collision.RuleTypeA : Collision.RuleTypeB;
+			const int32 CheckIndex = bIsB ? Collision.RuleIndexA : Collision.RuleIndexB;
+			if (ThisType != Rule.RuleType || ThisIndex != Rule.RuleIndex
+				|| CheckType != Params.RuleType || CheckIndex != Params.RuleIndex)
+				continue;
+
+			const float Dist = Spline->GetDistanceAlongSplineAtLocation(
+				Collision.Midpoint, ESplineCoordinateSpace::World);
+
+			const float CheckDist = Check
+				                        ? Spline->GetDistanceAlongSplineAtLocation(
+					                        Check.GetValue(), ESplineCoordinateSpace::World)
+				                        : Intersect.DistanceMin;
+
+			const float Score = FMath::Abs(Dist - CheckDist);
+			Candidates.Emplace(Score, &Collision);
+		}
+		Candidates.Sort();
+
+		float Distance = 0.f;
+		float DistanceB = 0.f;
+		if (!Candidates.IsEmpty())
+		{
+			const auto* Candidate = Candidates[Params.IntersectionIndex].Value;
+			DrawDebugSphere(GetWorld(), Candidate->Midpoint, 10.f, 16, FColor::Cyan);
+			const bool bIsA = Candidate->SplineA == Spline;
+			const bool bIsB = Candidate->SplineB == Spline;
+			if (bIsA || bIsB)
+			{
+				Distance = bIsA ? Candidate->DistanceA : Candidate->DistanceB;
+				DistanceB = bIsB ? Candidate->DistanceA : Candidate->DistanceB;
+			}
+		}
+		Distance += Params.OffsetDistance;
+		return FSplineNodeData{
+			Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
+			Spline->GetTangentAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
+			Distance,
+			DistanceB
+		};
+	}
+	}
+	return FSplineNodeData{};
+}
+
+
 void USplineToolkitFiller::RegenerateConnectRule(const TArray<FCollisionPoint>& Collisions,
                                                  const FSplineToolkitSplineIntersection& Intersection,
                                                  const FSplineToolkitSplineIntersection& IntersectionB,
@@ -497,6 +600,7 @@ void USplineToolkitFiller::RegenerateConnectRule(const TArray<FCollisionPoint>& 
 #if WITH_EDITOR
 		Actor->SetActorLabel(FString::Printf(TEXT("FillingRule%d"), RuleIndex));
 #endif
+		Actor->AttachToActor(GetOwner(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 		this->SpawnedActors.Emplace(RuleIndex, Actor);
 	}
 
@@ -520,93 +624,12 @@ void USplineToolkitFiller::RegenerateConnectRule(const TArray<FCollisionPoint>& 
 	USplineComponent* SplineComp = AddComponent.operator()<USplineComponent>();
 
 	// Helper function
-	auto GetPositionTangentForNode = [&](const FSplineToolkitFillingConnectRuleParams& Params,
-	                                     const TOptional<FVector>& Check) -> TTuple<FVector, FVector, float>
-	{
-		const FSplineToolkitSplineIntersection& Intersect = Rule.SplineIndex == SplineIndex
-			                                                    ? Intersection
-			                                                    : IntersectionB;
-		USplineComponent* Spline = Rule.SplineIndex == SplineIndex ? this->SplineComponent : Intersection.Other;
+	auto [SplineStart, SplineLeaveTangent, DistanceStart, DistanceStartB] = GetPositionTangentForNode(
+		Collisions, Intersection, IntersectionB, SplineIndex, Rule, Rule.Start, NullOpt);
 
-		auto* Sampler = Spline->GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
-		if (!Sampler)
-			return TTuple<FVector, FVector, float>{FVector::ZeroVector, FVector::ZeroVector, 0.f};
+	auto [SplineEnd, SplineArriveTangent, DistanceEnd, DistanceEndB] = GetPositionTangentForNode(
+		Collisions, Intersection, IntersectionB, SplineIndex, Rule, Rule.End, SplineStart);
 
-		switch (Params.Type)
-		{
-		case EFillAnchorType::CUTOUT_START:
-		{
-			const float Distance = Intersect.DistanceMin + Params.OffsetDistance;
-			return TTuple<FVector, FVector, float>{
-				Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
-				Spline->GetTangentAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
-				Distance
-			};
-		}
-		case EFillAnchorType::CUTOUT_END:
-		{
-			const float Distance = Intersect.DistanceMax + Params.OffsetDistance;
-			return TTuple<FVector, FVector, float>{
-				Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
-				Spline->GetTangentAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
-				Distance
-			};
-		}
-		case EFillAnchorType::INTERSECT_RULE:
-		{
-			TArray<TPair<float, const FCollisionPoint*>> Candidates{};
-
-			for (const auto& Collision : Collisions)
-			{
-				const bool bIsA = Collision.SplineA == Spline;
-				const bool bIsB = Collision.SplineB == Spline;
-				if (!bIsA && !bIsB)
-					continue;
-
-				// Rule on the side of the spline we're anchoring to
-				const ESplineToolkitRuleType ThisType = bIsA ? Collision.RuleTypeA : Collision.RuleTypeB;
-				const int32 ThisIndex = bIsA ? Collision.RuleIndexA : Collision.RuleIndexB;
-				const ESplineToolkitRuleType CheckType = bIsB ? Collision.RuleTypeA : Collision.RuleTypeB;
-				const int32 CheckIndex = bIsB ? Collision.RuleIndexA : Collision.RuleIndexB;
-				if (ThisType != Rule.RuleType || ThisIndex != Rule.RuleIndex
-					|| CheckType != Params.RuleType || CheckIndex != Params.RuleIndex)
-					continue;
-
-				const float Dist = Spline->GetDistanceAlongSplineAtLocation(
-					Collision.Midpoint, ESplineCoordinateSpace::World);
-
-				const float CheckDist = Check
-					                        ? Spline->GetDistanceAlongSplineAtLocation(
-						                        Check.GetValue(), ESplineCoordinateSpace::World)
-					                        : Intersect.DistanceMin;
-
-				const float Score = FMath::Abs(Dist - CheckDist);
-				Candidates.Emplace(Score, &Collision);
-			}
-			Candidates.Sort();
-
-			float Distance = 0.f;
-			if (!Candidates.IsEmpty())
-			{
-				const auto* Candidate = Candidates[Params.IntersectionIndex].Value;
-				DrawDebugSphere(GetWorld(), Candidate->Midpoint, 10.f, 16, FColor::Cyan);
-				const bool bIsA = Candidate->SplineA == Spline;
-				const bool bIsB = Candidate->SplineB == Spline;
-				if (bIsA || bIsB)
-					Distance = bIsA ? Candidate->DistanceA : Candidate->DistanceB;
-			}
-			Distance += Params.OffsetDistance;
-			return TTuple<FVector, FVector, float>{
-				Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
-				Spline->GetTangentAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World),
-				Distance
-			};
-		}
-		}
-		return TTuple<FVector, FVector, float>{FVector::ZeroVector, FVector::ZeroVector, 0.f};
-	};
-	auto [SplineStart, SplineLeaveTangent, DistanceStart] = GetPositionTangentForNode(Rule.Start, NullOpt);
-	auto [SplineEnd, SplineArriveTangent, DistanceEnd] = GetPositionTangentForNode(Rule.End, SplineStart);
 	SplineArriveTangent *= -1.f;
 
 	bool bOnSameSpline = Rule.Start.SplineIndex == Rule.End.SplineIndex || Rule.Start.Type ==
@@ -662,6 +685,58 @@ void USplineToolkitFiller::RegenerateConnectRule(const TArray<FCollisionPoint>& 
 		Extruder->bUpdateOnSplineChange = true;
 		Extruder->Overrides.RuleIndex = RuleIndex;
 		Extruder->Overrides.Distance = bOnSameSpline ? TOptional{FVector2f{DistanceStart, DistanceEnd}} : NullOpt;
+
+		// Tangent overrides
+		USplineComponent* SplineA = Rule.SplineIndex == SplineIndex ? this->SplineComponent : Intersection.Other;
+		USplineComponent* SplineB = Rule.SplineIndex == SplineIndex ? Intersection.Other : this->SplineComponent;
+		auto GetTangentOverride = [&](const FSplineToolkitFillingConnectRuleParams& Params) -> TOptional<FVector>
+		{
+			if (Params.Type != EFillAnchorType::INTERSECT_RULE)
+				return NullOpt;
+
+			bool bIsStart = Params == Rule.Start;
+
+			const float DistA = bIsStart ? DistanceStart  : DistanceEnd;
+			const float DistB = bIsStart ? DistanceStartB : DistanceEndB;
+
+			const FVector TangentA = SplineA->GetTangentAtDistanceAlongSpline(DistA, ESplineCoordinateSpace::World).GetSafeNormal();
+			const FVector TangentB = SplineB->GetTangentAtDistanceAlongSpline(DistB, ESplineCoordinateSpace::World).GetSafeNormal();
+			const FVector PosA = SplineA->GetLocationAtDistanceAlongSpline(DistA, ESplineCoordinateSpace::World);
+			const FVector PosB = SplineB->GetLocationAtDistanceAlongSpline(DistB, ESplineCoordinateSpace::World);
+
+			switch (Params.TangentDirection)
+			{
+			case EConnectionTangentDirection::UNAFFECTED:
+				return NullOpt;
+			case EConnectionTangentDirection::FACE_OTHER_SPLINE:
+			{
+				FVector Normal = FVector::UpVector.Cross(TangentB).GetSafeNormal();
+				if ((Normal | (PosB - PosA)) < 0.f)
+					Normal = -Normal;
+				return Normal;
+			}
+			case EConnectionTangentDirection::HALFWAY:
+			{
+				// Path runs along A into the junction, then out along B.
+				const FVector DirAIn = bIsStart ? -TangentA : TangentA;
+				// B's direction away from the junction: toward its longer remaining side
+				const bool bBExtendsForward = (SplineB->GetSplineLength() - DistB) >= DistB;
+				const FVector DirBOut = bBExtendsForward ? TangentB : -TangentB;
+
+				FVector Miter = DirAIn + DirBOut;
+				if (Miter.IsNearlyZero())
+					return NullOpt;                       // antiparallel, no miter
+				Miter = Miter.GetSafeNormal();
+				if ((Miter | TangentA) < 0.f)            // keep the profile from flipping
+					Miter = -Miter;
+				return Miter;
+			}
+			}
+			return NullOpt;
+		};
+
+		Extruder->Overrides.StartTangent = GetTangentOverride(Rule.Start);
+		Extruder->Overrides.EndTangent   = GetTangentOverride(Rule.End);
 	}
 }
 

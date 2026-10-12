@@ -87,13 +87,25 @@ private:
 	// Handles this edge case: User sets a rule to continue normally (from CUTOUT_START to CUTOUT_END on the same spline and rule)
 	static bool RuleContinuesNormally(const FSplineToolkitFillingConnectRule& Rule);
 
-	void RegenerateConnectRules(const TArray<FCollisionPoint>& Collisions, const FSplineToolkitSplineIntersection& Intersection, const
+	void RegenerateConnectRules(const TArray<FCollisionPoint>& Collisions,
+	                            const FSplineToolkitSplineIntersection& Intersection, const
 	                            FSplineToolkitSplineIntersection& IntersectionB, int32
 	                            SplineIndex, const FSplineToolkitFillingRules& Rules);
 
+	// Helper function to get data for one of the nodes of the connection rule
+	using FSplineNodeData = TTuple<FVector, FVector, float, float>;
+	FSplineNodeData GetPositionTangentForNode(const TArray<FCollisionPoint>& Collisions,
+	                                          const FSplineToolkitSplineIntersection& Intersection,
+	                                          const FSplineToolkitSplineIntersection& IntersectionB, int32 SplineIndex,
+	                                          const FSplineToolkitFillingConnectRule& Rule,
+	                                          const FSplineToolkitFillingConnectRuleParams& Params,
+	                                          const TOptional<FVector>& Check);
+
 	void RegenerateConnectRule(const TArray<FCollisionPoint>& Collisions,
-	                           const FSplineToolkitSplineIntersection& Intersection, const FSplineToolkitSplineIntersection& IntersectionB, int32
-	                           SplineIndex, int32 RuleIndex, const FSplineToolkitFillingConnectRule& Rule, const void* GeneratorRule, UClass*
+	                           const FSplineToolkitSplineIntersection& Intersection,
+	                           const FSplineToolkitSplineIntersection& IntersectionB, int32
+	                           SplineIndex, int32 RuleIndex, const FSplineToolkitFillingConnectRule& Rule,
+	                           const void* GeneratorRule, UClass*
 	                           GeneratorClass);
 
 #if WITH_EDITOR
