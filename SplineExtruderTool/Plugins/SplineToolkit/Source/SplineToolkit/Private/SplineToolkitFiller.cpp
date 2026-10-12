@@ -138,11 +138,14 @@ USplineToolkitFiller::FPolyLine USplineToolkitFiller::CreatePolyLine(
 		float Distance = FMath::Lerp(Intersection.DistanceMin, Intersection.DistanceMax,
 		                             static_cast<float>(I) / static_cast<float>(NumSamples - 1));
 
-		FSplineToolkitStepContext Context{Spline, Distance};
+		FSplineToolkitStepContext Context{Spline, Sampler->GetSampleAtDistance(Distance)};
 
 		auto ModdedRule = Rule;
 		for (const auto& Modifier : Rule.Modifiers)
-			ModdedRule = Modifier->ModifyInstantiationStep(Context, ModdedRule);
+		{
+			if (Modifier->IsValidLowLevel())
+				ModdedRule = Modifier->ModifyInstantiationStep(Context, ModdedRule);
+		}
 
 		Result[I] = SampleOffsetLocationFill(Sampler, Distance, ModdedRule.Offset);
 	}
@@ -162,12 +165,14 @@ USplineToolkitFiller::FPolyLine USplineToolkitFiller::CreatePolyLine(
 	{
 		float Distance = FMath::Lerp(Intersection.DistanceMin, Intersection.DistanceMax,
 		                             static_cast<float>(I) / static_cast<float>(NumSamples - 1));
-
-		FSplineToolkitStepContext Context{Spline, Distance};
+		FSplineToolkitStepContext Context{Spline, Sampler->GetSampleAtDistance(Distance)};
 
 		auto ModdedRule = Rule;
 		for (const auto& Modifier : Rule.Modifiers)
-			ModdedRule = Modifier->ModifyExtrusionStep(Context, ModdedRule);
+		{
+			if (Modifier->IsValidLowLevel())
+				ModdedRule = Modifier->ModifyExtrusionStep(Context, ModdedRule);
+		}
 
 		Result[I] = SampleOffsetLocationFill(Sampler, Distance, ModdedRule.Offset);
 	}

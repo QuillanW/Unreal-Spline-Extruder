@@ -699,7 +699,7 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 
 	const float TotalSplineDistance = RmfSampler->Samples.Last().Distance;
 
-	FSplineToolkitStepContext Context{SplineComponent, OutRmfSample.Distance};
+	FSplineToolkitStepContext Context{SplineComponent, OutRmfSample};
 	FSplineToolkitExtrusionRule ModdedRule = Rule;
 	for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
 	{

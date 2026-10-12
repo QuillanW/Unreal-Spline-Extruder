@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "SplineToolkitRmf.h"
 #include "SplineToolkitRuleset.h"
 #include "SplineToolkitModifier.generated.h"
 
@@ -10,19 +11,13 @@ struct SPLINETOOLKIT_API FSplineToolkitStepContext
 	GENERATED_BODY()
 	
 	FSplineToolkitStepContext() = default;
-	FSplineToolkitStepContext(USplineComponent* Spline, float Distance);
+	FSplineToolkitStepContext(USplineComponent* Spline, FSplineToolkitRmfSample Sample);
 	
 	UPROPERTY(BlueprintReadOnly, Category = "SplineToolkit")
 	USplineComponent* SplineComponent = nullptr;
 	
 	UPROPERTY(BlueprintReadOnly, Category = "SplineToolkit")
-	float TimeAlongSpline = 0.f;
-
-	UPROPERTY(BlueprintReadOnly, Category = "SplineToolkit")
-	float DistanceAlongSpline = 0.f;
-
-	UPROPERTY(BlueprintReadOnly, Category = "SplineToolkit")
-	float Curvature = 0.f;
+	FSplineToolkitRmfSample RMFSample;
 
 	UPROPERTY(BlueprintReadOnly, Category = "SplineToolkit")
 	FTransform WorldTransform;
