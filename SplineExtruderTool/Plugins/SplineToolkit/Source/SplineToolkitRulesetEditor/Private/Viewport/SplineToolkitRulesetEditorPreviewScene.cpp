@@ -5,6 +5,7 @@
 
 #include "SplineToolkitInstantiator.h"
 #include "SplineToolkitMeshExtruder.h"
+#include "SplineToolkitMeshStretcher.h"
 #include "Components/SplineComponent.h"
 #include "GameFramework/WorldSettings.h"
 #include "Viewport/SplineToolkitRulesetEditorViewport.h"
@@ -242,8 +243,14 @@ void FSplineToolkitRulesetPreviewScene::UpdateSplinePreview(SplinePreview previe
 	Extruder->RegisterComponent();
 	Extruder->Ruleset = GetEditor()->GetRuleset();
 
-	// TODO: Add the other components
+	auto* Stretcher = reinterpret_cast<USplineToolkitMeshStretcher*>(Spline0->AddComponentByClass(
+		USplineToolkitMeshStretcher::StaticClass(), false, FTransform::Identity, false));
+	Stretcher->RegisterComponent();
+	Stretcher->Ruleset = GetEditor()->GetRuleset();
 
+	// TODO: Add the other components
+	
+	
 	UpdatePreview();
 }
 
@@ -263,6 +270,10 @@ void FSplineToolkitRulesetPreviewScene::UpdatePreview()
 
 		if (auto* Extruder = Actor->GetComponentByClass<USplineToolkitMeshExtruder>())
 			Extruder->Regenerate();
+		
+		if (auto* Stretcher = Actor->GetComponentByClass<USplineToolkitMeshStretcher>())
+			Stretcher->Regenerate();
+		
 		// TODO: Add the other components
 	}
 }
