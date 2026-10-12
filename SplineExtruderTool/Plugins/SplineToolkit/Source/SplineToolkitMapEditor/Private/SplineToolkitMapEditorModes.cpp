@@ -1,28 +1,12 @@
-#include "EngineUtils.h"
+#include "SplineToolkitInstantiator.h"
 #include "SplineToolkitMapEditor.h"
+#include "SplineToolkitMeshExtruder.h"
 
 void USplineToolkitEditMode::SelectClosestSpline(FVector ClickPos)
 {
 	GEditor->SelectNone(true, true);
 	
-	float ClosestDistance = 1000.0f;
-	USplineComponent* ClosestComp = nullptr;
-	
-	for (TActorIterator<AActor> ActorIt(GetWorld()); ActorIt; ++ActorIt)
-	{
-		AActor* Actor = *ActorIt;
-		if (!Actor) continue;
-		USplineComponent* SplineComp = Actor->GetComponentByClass<USplineComponent>();
-		if (!SplineComp) continue;
-		FVector WorldLoc = SplineComp->GetWorldLocationAtDistanceAlongSpline(SplineComp->GetDistanceAlongSplineAtLocation(ClickPos, ESplineCoordinateSpace::World));
-		float Dist = (ClickPos - WorldLoc).Length();
-		if (Dist < ClosestDistance)
-		{
-			ClosestDistance = Dist;
-			ClosestComp = SplineComp;
-		}
-	}
-	
+	USplineComponent* ClosestComp = FindClosestSpline(ClickPos);
 	if (!ClosestComp) return;
 	
 	LastSelectedSpline = SelectedSpline;
@@ -33,12 +17,26 @@ void USplineToolkitEditMode::SelectClosestSpline(FVector ClickPos)
 
 void USplineToolkitEditMode::ConnectSplines(FVector ClickPos)
 {
+	GEditor->SelectNone(true, true);
+	
 }
 
 void USplineToolkitEditMode::DisconnectSplines(FVector ClickPos)
 {
+	GEditor->SelectNone(true, true);
 }
 
 void USplineToolkitEditMode::UpdateRuleset(FVector ClickPos)
 {
+	GEditor->SelectNone(true, true);
+	USplineComponent* ClosestComp = FindClosestSpline(ClickPos);
+	if (!ClosestComp) return;
+	
+	const auto Actor = ClosestComp->GetOwner();
+	Actor->GetComponentByClass<USplineToolkitInstantiator>()->Ruleset = SelectedRuleset;
+	Actor->GetComponentByClass<USplineToolkitMeshExtruder>()->Ruleset = SelectedRuleset;
+	Actor->GetComponentByClass<USplineToolkitIntersectionSolver>()->Ruleset = SelectedRuleset;
+	// TODO: Add more components
+	
+	ClosestComp->GetOnSplineChanged().Broadcast();
 }

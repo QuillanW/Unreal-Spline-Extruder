@@ -48,7 +48,11 @@ public class SplineToolkitMapEditor : ModuleRules
 				"Slate",
 				"SlateCore",
 				"EditorFramework",
-				"ComponentVisualizers"
+				"ComponentVisualizers",
+				"UnrealEd",
+				"PropertyEditor",
+				"AssetRegistry",
+				"SplineToolkit"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

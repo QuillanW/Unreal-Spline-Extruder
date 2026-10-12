@@ -2,6 +2,7 @@
 
 #include "SplineToolkitMapEditor.h"
 
+#include "PropertyCustomizationHelpers.h"
 #include "Components/SplineComponent.h"
 
 #define LOCTEXT_NAMESPACE "FSplineToolkitMapEditorModule"
@@ -96,6 +97,13 @@ bool USplineToolkitEditMode::IsSelectionDisallowed(AActor* InActor, bool bInSele
 	return bInSelection && !HasSpline(InActor);
 }
 
+void USplineToolkitEditMode::SetEditMode(ESplineToolkitEditorModes Mode)
+{
+	CurrentEditMode = Mode;
+	SelectedSpline = nullptr;
+	LastSelectedSpline = nullptr;
+}
+
 void USplineToolkitEditMode::CreateToolkit()
 {
 	Toolkit = MakeShared<FSplineToolkitModeToolkit>(this);
@@ -104,31 +112,53 @@ void USplineToolkitEditMode::CreateToolkit()
 TSharedPtr<SWidget> FSplineToolkitModeToolkit::GetInlineContent() const
 {
 	return SNew(SVerticalBox)
-		+ SVerticalBox::Slot().AutoHeight().Padding(4.f)[ MakeButton(INVTEXT("Select"), ESplineToolkitEditorModes::Select) ]
-		+ SVerticalBox::Slot().AutoHeight().Padding(4.f)[ MakeButton(INVTEXT("Connect"), ESplineToolkitEditorModes::Connect) ]
-		+ SVerticalBox::Slot().AutoHeight().Padding(4.f)[ MakeButton(INVTEXT("Disconnect"), ESplineToolkitEditorModes::Disconnect) ]
-		+ SVerticalBox::Slot().AutoHeight().Padding(4.f)[ MakeButton(INVTEXT("Update Ruleset"), ESplineToolkitEditorModes::UpdateRuleset) ];
+		+ SVerticalBox::Slot().MinHeight(16.f).Padding(4.f)[ MakeButton(INVTEXT("Select"), ESplineToolkitEditorModes::Select) ]
+		+ SVerticalBox::Slot().MinHeight(16.f).Padding(4.f)[ MakeButton(INVTEXT("Connect"), ESplineToolkitEditorModes::Connect) ]
+		+ SVerticalBox::Slot().MinHeight(16.f).Padding(4.f)[ MakeButton(INVTEXT("Disconnect"), ESplineToolkitEditorModes::Disconnect) ]
+		+ SVerticalBox::Slot().MinHeight(16.f).Padding(4.f)[ MakeButton(INVTEXT("Update Ruleset"), ESplineToolkitEditorModes::UpdateRuleset) ]
+		+ SVerticalBox::Slot().MinHeight(16.f).Padding(4.f)[ MakeRulesetPicker() ];
 }
 
-TSharedRef<SWidget> FSplineToolkitModeToolkit::MakeButton(FText Label, ESplineToolkitEditorModes Action) const
+TSharedRef<SWidget> FSplineToolkitModeToolkit::MakeButton(const FText& Label, ESplineToolkitEditorModes BtnMode) const
 {
 	TWeakObjectPtr<USplineToolkitEditMode> WeakMode = Mode;
 
 	return SNew(SButton)
 		.Text(Label)
-		.ButtonColorAndOpacity_Lambda([WeakMode, Action]()
+		.ButtonColorAndOpacity_Lambda([WeakMode, BtnMode]()
 		{
-			const bool bActive = WeakMode.IsValid() && WeakMode->CurrentEditMode == Action;
+			const bool bActive = WeakMode.IsValid() && WeakMode->CurrentMode() == BtnMode;
 			return bActive ? FLinearColor(0.2f, 0.5f, 1.0f) : FLinearColor::White;
 		})
-		.OnClicked_Lambda([WeakMode, Action]()
+		.OnClicked_Lambda([WeakMode, BtnMode]()
 		{
 			UE_LOG(LogTemp, Warning, TEXT("Button clicked, mode valid: %d"), WeakMode.IsValid());
 			if (WeakMode.IsValid())
-			{
-				WeakMode->CurrentEditMode = Action;
-			}
+				WeakMode->SetEditMode(BtnMode);
 			return FReply::Handled();
+		});
+}
+
+TSharedRef<SWidget> FSplineToolkitModeToolkit::MakeRulesetPicker() const
+{
+	TWeakObjectPtr<USplineToolkitEditMode> WeakMode = Mode;
+
+	return SNew(SObjectPropertyEntryBox)
+		.AllowedClass(USplineToolkitRuleset::StaticClass())
+		.AllowClear(true)
+		.DisplayThumbnail(false)
+		.ObjectPath_Lambda([WeakMode]() -> FString
+		{
+			return (WeakMode.IsValid() && WeakMode->SelectedRuleset)
+				? FSoftObjectPath(WeakMode->SelectedRuleset).ToString()
+				: FString();
+		})
+		.OnObjectChanged_Lambda([WeakMode](const FAssetData& AssetData)
+		{
+			if (WeakMode.IsValid())
+			{
+				WeakMode->SelectedRuleset = Cast<USplineToolkitRuleset>(AssetData.GetAsset());
+			}
 		});
 }
 

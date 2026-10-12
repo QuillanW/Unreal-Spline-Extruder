@@ -2,6 +2,7 @@
 
 #pragma once
 #include "Selection.h"
+#include "SplineToolkitRuleset.h"
 #include "Components/SplineComponent.h"
 #include "Modules/ModuleManager.h"
 #include "Tools/LegacyEdModeWidgetHelpers.h"
@@ -40,7 +41,10 @@ public:
 	virtual bool IsSelectionAllowed(AActor* InActor, bool bInSelection) const override;
 	virtual bool IsSelectionDisallowed(AActor* InActor, bool bInSelection) const override;
 
-	ESplineToolkitEditorModes CurrentEditMode = ESplineToolkitEditorModes::Select;
+	void SetEditMode(ESplineToolkitEditorModes Mode);
+	ESplineToolkitEditorModes CurrentMode() const { return CurrentEditMode; }
+	
+	TObjectPtr<USplineToolkitRuleset> SelectedRuleset;
 	
 protected:
 	virtual void CreateToolkit() override;
@@ -50,11 +54,16 @@ protected:
 		return MakeShared<FSplineWidgetHelper>();
 	}
 	
+	USplineComponent* FindClosestSpline(const FVector& Pos, bool& EndClosest) const;
+	USplineComponent* FindClosestSpline(const FVector& Pos) const;
+	
 	virtual void SelectClosestSpline(FVector ClickPos);
 	virtual void ConnectSplines(FVector ClickPos);
 	virtual void DisconnectSplines(FVector ClickPos);
 	virtual void UpdateRuleset(FVector ClickPos);
 	
+	
+	ESplineToolkitEditorModes CurrentEditMode = ESplineToolkitEditorModes::Select;
 	USplineComponent* SelectedSpline = nullptr;
 	USplineComponent* LastSelectedSpline = nullptr;
 	
@@ -75,7 +84,8 @@ public:
 private:
 	TWeakObjectPtr<USplineToolkitEditMode> Mode;
 
-	TSharedRef<SWidget> MakeButton(FText Label, ESplineToolkitEditorModes Action) const;
+	TSharedRef<SWidget> MakeButton(const FText& Label, ESplineToolkitEditorModes BtnMode) const;
+	TSharedRef<SWidget> MakeRulesetPicker() const;
 };
 
 class FSplineToolkitMapEditorModule : public IModuleInterface
