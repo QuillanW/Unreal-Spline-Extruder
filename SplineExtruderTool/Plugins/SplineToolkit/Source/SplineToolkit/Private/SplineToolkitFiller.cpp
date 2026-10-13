@@ -103,6 +103,12 @@ void USplineToolkitFiller::RegenerateInternal(const USplineToolkitFiller* Caller
 	if (auto* Instantiator = GetOwner()->FindComponentByClass<USplineToolkitInstantiator>())
 		Instantiator->IgnoreIntersectCutouts.Empty();
 
+	if (IntersectionSolver->Collisions.IsEmpty())
+	{
+		this->SpawnedActors.Empty();
+		return;
+	}
+
 	int32 IntersectionIndex = 0;
 	for (const auto& Intersection : IntersectionSolver->Collisions)
 	{
@@ -161,6 +167,19 @@ void USplineToolkitFiller::RegenerateInternal(const USplineToolkitFiller* Caller
 			Filler && !Caller)
 			Filler->RegenerateInternal(this);
 	}
+
+	// Remove unused actors
+	TArray<int32> ToRemove{};
+	for (const auto& [Index, Actor] : this->SpawnedActors)
+	{
+		if ((BitCast<int32>(BitCast<uint32>(Index) & 0xffff0000) >> 16) >= IntersectionIndex)
+		{
+			Actor->Destroy();
+			ToRemove.Add(Index);
+		}
+	}
+	for (int32 Index : ToRemove)
+		this->SpawnedActors.Remove(Index);
 }
 
 
