@@ -350,7 +350,7 @@ TOptional<TArray<FSplineToolkitSplineIntersection>> USplineToolkitIntersectionSo
 			Intersection.Midpoint, ESplineCoordinateSpace::World).GetSafeNormal();
 		FVector TangentB = Intersection.Other->FindTangentClosestToWorldLocation(
 			Intersection.Midpoint, ESplineCoordinateSpace::World).GetSafeNormal();
-		Intersection.AbsoluteAngleDifference = FMath::Abs(FMath::RadiansToDegrees(FMath::Acos(TangentA.Dot(TangentB))));
+		Intersection.AngleDifference = FMath::RadiansToDegrees(FMath::Acos(TangentA.Dot(TangentB)));
 	}
 
 	return Result;

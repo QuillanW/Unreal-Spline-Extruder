@@ -360,7 +360,7 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingRules
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float AngleMin = 0.f;
+	float AngleMin = -180.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float AngleMax = 180.f;

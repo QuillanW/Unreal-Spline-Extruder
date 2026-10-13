@@ -43,7 +43,9 @@ public:
 private:
 
 	UPROPERTY()
+	// Multiple indices (16-bit intersection index, 16-bit rule index)
 	TMap<int32, TObjectPtr<AActor>> SpawnedActors;
+	int32 GetMapIndex(int32 IntersectionIndex, int32 RuleIndex);
 
 	bool bRegenerate = false;
 
@@ -87,26 +89,34 @@ private:
 	// Handles this edge case: User sets a rule to continue normally (from CUTOUT_START to CUTOUT_END on the same spline and rule)
 	static bool RuleContinuesNormally(const FSplineToolkitFillingConnectRule& Rule);
 
-	void RegenerateConnectRules(const TArray<FCollisionPoint>& Collisions,
-	                            const FSplineToolkitSplineIntersection& Intersection, const
-	                            FSplineToolkitSplineIntersection& IntersectionB, int32
-	                            SplineIndex, const FSplineToolkitFillingRules& Rules);
+
+	struct FConnectCtx
+	{
+		int32 IntersectionIndex;
+		const TArray<FCollisionPoint>* Collisions;
+		FSplineToolkitSplineIntersection Intersection;
+		const FSplineToolkitSplineIntersection* IntersectionPtr;
+		FSplineToolkitSplineIntersection IntersectionB;
+		int32 SplineIndex;
+		const FSplineToolkitFillingRules* Rules;
+		bool bFlip;
+	};
+
+
+	void RegenerateConnectRules(const FConnectCtx& Ctx);
 
 	// Helper function to get data for one of the nodes of the connection rule
 	using FSplineNodeData = TTuple<FVector, FVector, float, float>;
-	FSplineNodeData GetPositionTangentForNode(const TArray<FCollisionPoint>& Collisions,
-	                                          const FSplineToolkitSplineIntersection& Intersection,
-	                                          const FSplineToolkitSplineIntersection& IntersectionB, int32 SplineIndex,
-	                                          const FSplineToolkitFillingConnectRule& Rule,
-	                                          const FSplineToolkitFillingConnectRuleParams& Params,
-	                                          const TOptional<FVector>& Check);
+	TOptional<FSplineNodeData> GetPositionTangentForNode(const FConnectCtx& Ctx,
+	                                                     const FSplineToolkitFillingConnectRule& Rule,
+	                                                     const FSplineToolkitFillingConnectRuleParams& Params,
+	                                                     const TOptional<FVector>& Check);
 
-	void RegenerateConnectRule(const TArray<FCollisionPoint>& Collisions,
-	                           const FSplineToolkitSplineIntersection& Intersection,
-	                           const FSplineToolkitSplineIntersection& IntersectionB, int32
-	                           SplineIndex, int32 RuleIndex, const FSplineToolkitFillingConnectRule& Rule,
-	                           const void* GeneratorRule, UClass*
-	                           GeneratorClass);
+	void RegenerateConnectRule(const FConnectCtx& Ctx,
+	                           int32 RuleIndex,
+	                           const FSplineToolkitFillingConnectRule& Rule,
+	                           const void* GeneratorRule,
+	                           UClass* GeneratorClass);
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
