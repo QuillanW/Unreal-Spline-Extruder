@@ -350,7 +350,17 @@ TOptional<TArray<FSplineToolkitSplineIntersection>> USplineToolkitIntersectionSo
 			Intersection.Midpoint, ESplineCoordinateSpace::World).GetSafeNormal();
 		FVector TangentB = Intersection.Other->FindTangentClosestToWorldLocation(
 			Intersection.Midpoint, ESplineCoordinateSpace::World).GetSafeNormal();
-		Intersection.AngleDifference = FMath::RadiansToDegrees(FMath::Acos(TangentA.Dot(TangentB)));
+
+		const int32 SplineIndex = GetOwner()->GetUniqueID() < Intersection.Other->GetOwner()->GetUniqueID() ? 0 : 1;
+		if (SplineIndex == 1)
+			Swap(TangentA, TangentB);
+
+		FSplineToolkitRmfSample Sample = SamplerA->GetSampleAtDistance(this->SplineComponent->GetDistanceAlongSplineAtLocation(Intersection.Midpoint, ESplineCoordinateSpace::World));
+
+		const float Dot   = FVector::DotProduct(TangentA, TangentB);
+		const float Cross = FVector::DotProduct(FVector::CrossProduct(TangentA, TangentB), Sample.Reference);
+
+		Intersection.AngleDifference = FMath::RadiansToDegrees(FMath::Atan2(Cross, Dot));
 	}
 
 	return Result;
