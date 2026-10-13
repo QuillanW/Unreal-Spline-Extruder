@@ -66,6 +66,7 @@ protected:
 	ESplineToolkitEditorModes CurrentEditMode = ESplineToolkitEditorModes::Select;
 	USplineComponent* SelectedSpline = nullptr;
 	USplineComponent* LastSelectedSpline = nullptr;
+	bool bLastSelectedSplineEnd = false;
 	
 	TSharedPtr<SWidget> ViewportPanel;
 };

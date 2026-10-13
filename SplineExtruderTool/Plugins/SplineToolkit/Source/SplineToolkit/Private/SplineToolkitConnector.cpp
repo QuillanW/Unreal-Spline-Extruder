@@ -25,6 +25,7 @@ void USplineToolkitConnector::Attach(const FSplineConnection& Connection)
 {
 	Connections.AddUnique(Connection);
 	Validate();
+	ReAttach();
 }
 
 void USplineToolkitConnector::AutoAttach(USplineComponent* Target)

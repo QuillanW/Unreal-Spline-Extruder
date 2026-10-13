@@ -21,6 +21,8 @@ USplineComponent* USplineToolkitEditMode::FindClosestSpline(const FVector& Pos, 
 		}
 	}
 	
+	if (!ClosestComp) return nullptr;
+	
 	FVector StartLoc = ClosestComp->GetWorldLocationAtTime(0.0f, ESplineCoordinateSpace::World);
 	float StartDist = (Pos - StartLoc).Length();
 	FVector EndLoc = ClosestComp->GetWorldLocationAtTime(1.0f, ESplineCoordinateSpace::World);
