@@ -602,58 +602,89 @@ TArray<int32> USplineToolkitMeshExtruder::ReorderToLoop(const FRawStaticIndexBuf
 }
 
 
-void USplineToolkitMeshExtruder::AddStartCap(USplineToolkitIntersectionSolver* Solver,
-                                             FSplineToolkitExtruderDrawData& DrawData,
-                                             const FSplineToolkitExtrusionRule& Rule,
-                                             int32 RuleIndex,
-                                             const FSplineToolkitExtruderMeshData& Data) const
+void USplineToolkitMeshExtruder::AddStartCap(FGenerationContext& Ctx) const
 {
 	FSplineToolkitRmfSample Sample{
 		.Distance = -1.f
 	};
 	int32 VertexPtr = 0;
 	bool _;
-	AddNextSampleToMesh(Solver, RuleIndex, DrawData, Rule, Data, Sample, VertexPtr, _);
+	AddNextSampleToMesh(Ctx, Sample, VertexPtr, _);
 
-	const int32 IterEnd = VertexPtr - Data.OriginSlice.VertexNum();
+	const int32 IterEnd = VertexPtr - Ctx.Data.OriginSlice.VertexNum();
 	while (VertexPtr >= IterEnd)
 	{
-		DrawData.Positions[VertexPtr] -= KINDA_SMALL_NUMBER * Sample.Tangent;
-		DrawData.Normals[VertexPtr--] = -Sample.Tangent;
+		Ctx.DrawData.Positions[VertexPtr] -= KINDA_SMALL_NUMBER * Sample.Tangent;
+		Ctx.DrawData.Normals[VertexPtr--] = -Sample.Tangent;
 	}
 }
 
 
-void USplineToolkitMeshExtruder::AddEndCap(USplineToolkitIntersectionSolver* Solver,
-                                           FSplineToolkitExtruderDrawData& DrawData,
-                                           const FSplineToolkitExtrusionRule& Rule,
-                                           int32 RuleIndex,
-                                           const FSplineToolkitExtruderMeshData& Data) const
+void USplineToolkitMeshExtruder::AddEndCap(FGenerationContext& Ctx) const
 {
 	FSplineToolkitRmfSample Sample{
 		.Distance = FLT_MAX
 	};
 	int32 VertexPtr = 0;
 	bool _;
-	AddNextSampleToMesh(Solver, RuleIndex, DrawData, Rule, Data, Sample, VertexPtr, _);
+	AddNextSampleToMesh(Ctx, Sample, VertexPtr, _);
 
-	const int32 IterEnd = VertexPtr - Data.OriginSlice.VertexNum();
+	const int32 IterEnd = VertexPtr - Ctx.Data.OriginSlice.VertexNum();
 	while (VertexPtr >= IterEnd)
 	{
-		DrawData.Positions[VertexPtr] += KINDA_SMALL_NUMBER * Sample.Tangent;
-		DrawData.Normals[VertexPtr--] = Sample.Tangent;
+		Ctx.DrawData.Positions[VertexPtr] += KINDA_SMALL_NUMBER * Sample.Tangent;
+		Ctx.DrawData.Normals[VertexPtr--] = Sample.Tangent;
 	}
 }
 
 
-bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionSolver* Solver,
-                                                     int32 RuleIndex,
-                                                     FSplineToolkitExtruderDrawData& DrawData,
-                                                     const FSplineToolkitExtrusionRule& Rule,
-                                                     const FSplineToolkitExtruderMeshData& Data,
-                                                     FSplineToolkitRmfSample& OutRmfSample,
-                                                     int32& OutVertexPtr,
-                                                     bool& OutDontConnect,
+void USplineToolkitMeshExtruder::ApplyTangentOverride(const FGenerationContext& Ctx,
+                                                      const FSplineToolkitExtrusionRule& ModdedRule,
+                                                      int32 VertexPtr, const FMatrix& Rotation,
+                                                      const FVector& OriginalTangent, FVector& TangentOverride) const
+{
+	// Flip the tangent override when will flip the geometry around
+	if (!TangentOverride.IsNearlyZero() && TangentOverride.Dot(OriginalTangent) < 0.f)
+		TangentOverride *= -1.f;
+
+	// Get the scale from the modified tangent and the modded rule
+	FVector Scale{ModdedRule.Scale.X, 1.f, ModdedRule.Scale.Y};
+
+	// Make a matrix for the tangent override
+	FMatrix TangentOverrideRotation = FMatrix::Identity;
+	if (!TangentOverride.IsNearlyZero())
+	{
+		// Made with Claude. I've already lost all motivation in this terrible project
+		const FVector Y = TangentOverride;
+		FVector Z = Rotation.GetScaledAxis(EAxis::Z);
+		Z = (Z - (Z | Y) * Y).GetSafeNormal(); // Gram-Schmidt reference against override
+		if (Z.IsNearlyZero()) // override parallel to reference
+		{
+			const FVector X0 = Rotation.GetScaledAxis(EAxis::X);
+			Z = (X0 - (X0 | Y) * Y).GetSafeNormal();
+		}
+		const FVector X = Y ^ Z; // same handedness as your RMF frame
+		const FMatrix OverriddenFrame(X, Y, Z, FVector::ZeroVector);
+
+		TangentOverrideRotation = OverriddenFrame * Rotation.GetTransposed();
+		Scale.X *= 1.f / FMath::Max(TangentOverride.Dot(OriginalTangent), 0.01f);
+	}
+
+	// First transform all vertices into the new tangent
+	int32 VertPtr = VertexPtr;
+	int32 IterEnd = VertPtr + Ctx.Data.OriginSlice.VertexNum();
+	for (; VertPtr < IterEnd; ++VertPtr)
+	{
+		Ctx.DrawData.Positions[VertPtr] = TangentOverrideRotation.TransformPosition(Ctx.DrawData.Positions[VertPtr] * Scale);
+		Ctx.DrawData.Normals[VertPtr] = TangentOverrideRotation.TransformVector(Ctx.DrawData.Normals[VertPtr]);
+		Ctx.DrawData.Tangents[VertPtr].TangentX = TangentOverrideRotation.TransformVector(
+			Ctx.DrawData.Tangents[VertPtr].TangentX);
+	}
+}
+
+
+bool USplineToolkitMeshExtruder::AddNextSampleToMesh(FGenerationContext& Ctx, FSplineToolkitRmfSample& OutRmfSample,
+                                                     int32& OutVertexPtr, bool& OutDontConnect,
                                                      bool bCalledFromSelf) const
 {
 	auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
@@ -691,7 +722,7 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 	}
 
 	// Handle intersection cutting
-	if (IsValid(Solver) && !bCalledFromSelf)
+	if (IsValid(Ctx.Solver) && !bCalledFromSelf)
 	{
 		// Determine the next RMF sample
 		auto FindCollisionEnd = [&](
@@ -702,7 +733,7 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 			RunningMax = FMath::Max(RunningMax, Iter->DistanceMax);
 			auto Next = Iter + 1;
 
-			if (Next == Solver->Collisions.end())
+			if (Next == Ctx.Solver->Collisions.end())
 				return {Iter, RunningMax};
 
 			if (Next->DistanceMin <= RunningMax)
@@ -711,20 +742,19 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 			return {Iter, RunningMax};
 		};
 
-		for (auto Iter = Solver->Collisions.begin(); Iter != Solver->Collisions.end(); ++Iter)
+		for (auto Iter = Ctx.Solver->Collisions.begin(); Iter != Ctx.Solver->Collisions.end(); ++Iter)
 		{
 			const auto& Cut = *Iter;
 			if (this->IgnoreIntersectCutouts.Contains(
-				TPair<int32, const FSplineToolkitSplineIntersection*>{RuleIndex, &Cut}))
+				TPair<int32, const FSplineToolkitSplineIntersection*>{Ctx.RuleIndex, &Cut}))
 				continue;
 
 			if (FMath::IsWithin(OutRmfSample.Distance, Cut.DistanceMin, Cut.DistanceMax))
 			{
 				// First add the beginning of the range
 				auto BeginSample = RmfSampler->GetSampleAtDistance(Cut.DistanceMin);
-				AddNextSampleToMesh(Solver, RuleIndex, DrawData, Rule, Data, BeginSample, OutVertexPtr, OutDontConnect,
-				                    true);
-				ConnectToPreviousSample(DrawData, OutVertexPtr, Data);
+				AddNextSampleToMesh(Ctx, BeginSample, OutVertexPtr, OutDontConnect, true);
+				ConnectToPreviousSample(Ctx.DrawData, OutVertexPtr, Ctx.Data);
 
 				const TPair<decltype(Iter), float> CutEnd = FindCollisionEnd(Iter, Iter->DistanceMax, FindCollisionEnd);
 				Iter = CutEnd.Get<0>();
@@ -743,7 +773,7 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 
 	const float TotalSplineDistance = RmfSampler->Samples.Last().Distance;
 
-	FSplineToolkitExtrusionRule ModdedRule = Rule;
+	FSplineToolkitExtrusionRule ModdedRule = Ctx.Rule;
 	if (this->Overrides.Size.IsSet())
 	{
 		const float Time = this->SplineComponent->GetTimeAtDistanceAlongSpline(OutRmfSample.Distance);
@@ -755,7 +785,7 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 			this->Overrides.ModifierSpline ? this->Overrides.ModifierSpline : this->SplineComponent,
 			Distance
 		};
-		for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
+		for (USplineToolkitRulesetModifierBase* Modifier : Ctx.Rule.Modifiers)
 		{
 			if (!Modifier) continue;
 			ModdedRule = Modifier->ModifyExtrusionStep(Context, ModdedRule);
@@ -763,8 +793,8 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 	}
 
 	// Instantiate a slice per sample
-	OutVertexPtr = DrawData.VertexTop();
-	DrawData.InsertVertices(Data.OriginSlice, OutVertexPtr);
+	OutVertexPtr = Ctx.DrawData.VertexTop();
+	Ctx.DrawData.InsertVertices(Ctx.Data.OriginSlice, OutVertexPtr);
 
 	// First make the normal rotation matrix
 	FVector Tangent = OutRmfSample.Tangent.GetSafeNormal();
@@ -786,53 +816,19 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(USplineToolkitIntersectionS
 		TangentOverride = this->Overrides.StartTangent->GetSafeNormal();
 	else if (OutRmfSample == RmfSampler->Samples.Last() && this->Overrides.EndTangent)
 		TangentOverride = this->Overrides.EndTangent->GetSafeNormal();
-
-	// Flip the tangent override when will flip the geometry around
-	if (!TangentOverride.IsNearlyZero() && TangentOverride.Dot(Tangent) < 0.f)
-		TangentOverride *= -1.f;
-
-	// Make a matrix for the tangent override
-	FMatrix TangentOverrideRotation = FMatrix::Identity;
-	if (!TangentOverride.IsNearlyZero())
-	{
-		// Made with Claude. I've already lost all motivation in this terrible project
-		const FVector Y = TangentOverride;
-		FVector Z = Rotation.GetScaledAxis(EAxis::Z);
-		Z = (Z - (Z | Y) * Y).GetSafeNormal();           // Gram-Schmidt reference against override
-		if (Z.IsNearlyZero())                             // override parallel to reference
-		{
-			const FVector X0 = Rotation.GetScaledAxis(EAxis::X);
-			Z = (X0 - (X0 | Y) * Y).GetSafeNormal();
-		}
-		const FVector X = Y ^ Z;                          // same handedness as your RMF frame
-		const FMatrix OverriddenFrame(X, Y, Z, FVector::ZeroVector);
-
-		TangentOverrideRotation = OverriddenFrame * Rotation.GetTransposed();
-	}
-
-	// First transform all vertices into the new tangent
-	int32 VertPtr = OutVertexPtr;
-	int32 IterEnd = VertPtr + Data.OriginSlice.VertexNum();
-	for (; VertPtr < IterEnd; ++VertPtr)
-	{
-		DrawData.Positions[VertPtr] = TangentOverrideRotation.TransformPosition(
-			DrawData.Positions[VertPtr] * FVector{ModdedRule.Scale.X, 1.f, ModdedRule.Scale.Y});
-		DrawData.Normals[VertPtr] = TangentOverrideRotation.TransformVector(DrawData.Normals[VertPtr]);
-		DrawData.Tangents[VertPtr].TangentX = TangentOverrideRotation.TransformVector(
-			DrawData.Tangents[VertPtr].TangentX);
-	}
+	ApplyTangentOverride(Ctx, ModdedRule, OutVertexPtr, Rotation, Tangent, TangentOverride);
 
 	// Transform all vertices with this matrix
-	IterEnd = OutVertexPtr + Data.OriginSlice.VertexNum();
+	int32 IterEnd = OutVertexPtr + Ctx.Data.OriginSlice.VertexNum();
 	for (; OutVertexPtr < IterEnd; ++OutVertexPtr)
 	{
-		DrawData.Positions[OutVertexPtr] = TransformMatrix.TransformPosition(
-			DrawData.Positions[OutVertexPtr] + ModdedRule.Offset);
-		DrawData.Normals[OutVertexPtr] = TransformMatrix.TransformVector(DrawData.Normals[OutVertexPtr]);
-		DrawData.Tangents[OutVertexPtr].TangentX = TransformMatrix.TransformVector(
-			DrawData.Tangents[OutVertexPtr].TangentX);
+		Ctx.DrawData.Positions[OutVertexPtr] = TransformMatrix.TransformPosition(
+			Ctx.DrawData.Positions[OutVertexPtr] + ModdedRule.Offset);
+		Ctx.DrawData.Normals[OutVertexPtr] = TransformMatrix.TransformVector(Ctx.DrawData.Normals[OutVertexPtr]);
+		Ctx.DrawData.Tangents[OutVertexPtr].TangentX = TransformMatrix.TransformVector(
+			Ctx.DrawData.Tangents[OutVertexPtr].TangentX);
 		// Set UVs to distance / totalDistance
-		DrawData.Uv0[OutVertexPtr].Y = (OutRmfSample.Distance / TotalSplineDistance) * ModdedRule.UvScale;
+		Ctx.DrawData.Uv0[OutVertexPtr].Y = (OutRmfSample.Distance / TotalSplineDistance) * ModdedRule.UvScale;
 	}
 
 	return true;
@@ -894,6 +890,14 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 	// Start and end cap
 	const uint32 MaxNumConnectionsIndices = (RmfSampler->NumRmfSamples + 1) * Data.OriginSlice.VertexNum() * 6;
 
+	FGenerationContext Ctx{
+		.Solver = Solver,
+		.DrawData = DrawData,
+		.Rule = Rule,
+		.RuleIndex = RuleIndex,
+		.Data = Data
+	};
+
 	bool bNoStartCap = Solver && !Solver->Collisions.IsEmpty() && Solver->Collisions[0].DistanceMin == 0.f;
 	if (bNoStartCap)
 	{
@@ -902,7 +906,7 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 	}
 	else
 	{
-		AddStartCap(Solver, DrawData, Rule, RuleIndex, Data);
+		AddStartCap(Ctx);
 		auto StartCap = ComputeEndCap(Data, 0, true);
 
 		const uint32 NumCapsIndices = 2 * StartCap.Num();
@@ -917,7 +921,7 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 		.Distance = -1.f
 	};
 	bool bDontConnect = false;
-	while (AddNextSampleToMesh(Solver, RuleIndex, DrawData, Rule, Data, Sample, VertexPtr, bDontConnect))
+	while (AddNextSampleToMesh(Ctx, Sample, VertexPtr, bDontConnect))
 	{
 		if (!bDontConnect)
 			ConnectToPreviousSample(DrawData, VertexPtr, Data);
@@ -927,7 +931,7 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 		Solver->Collisions.Last().DistanceMax, SplineComponent->GetSplineLength(), KINDA_SMALL_NUMBER);
 	if (!bNoEndCap)
 	{
-		AddEndCap(Solver, DrawData, Rule, RuleIndex, Data);
+		AddEndCap(Ctx);
 
 		auto EndCap = ComputeEndCap(Data, DrawData.VertexTop() - Data.OriginSlice.VertexNum(), false);
 		DrawData.AppendIndices(MoveTemp(EndCap));
