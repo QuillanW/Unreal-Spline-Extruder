@@ -72,6 +72,8 @@ void USplineToolkitEditMode::ConnectSplines(FVector ClickPos)
 void USplineToolkitEditMode::DisconnectSplines(FVector ClickPos)
 {
 	GEditor->SelectNone(true, true);
+	
+	
 }
 
 void USplineToolkitEditMode::UpdateRuleset(FVector ClickPos)

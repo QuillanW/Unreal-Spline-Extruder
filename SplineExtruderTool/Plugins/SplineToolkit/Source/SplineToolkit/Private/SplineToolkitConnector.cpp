@@ -52,6 +52,20 @@ void USplineToolkitConnector::AutoAttach(USplineComponent* Target)
 	ReAttach();
 }
 
+void USplineToolkitConnector::Detach(const USplineComponent* Target, ESplineEnd AtEnd)
+{
+	if (AtEnd == ESplineEnd::None) return;
+	for (const auto& Connection : Connections)
+	{
+		if (Connection.ToSpline != Target) continue;
+		if (AtEnd != ESplineEnd::Both)
+		{
+			if ()
+		}
+	}
+	Validate();
+}
+
 void USplineToolkitConnector::FullAutoAttach()
 {
 	float ClosestDistance = 10000.0f;
