@@ -132,7 +132,10 @@ void USplineToolkitInstantiator::RegenerateInternal()
 				if (!Modifier) continue;
 				ModdedRule = Modifier->ModifyInstantiationStep(Context, ModdedRule);
 			}
-
+			
+			CurrentDist -= Rule.Spacing - fmax(ModdedRule.Spacing, 1.0f);
+			Sample = RmfSampler->GetSampleAtDistance(CurrentDist);
+			
 			// Check if enabled (Can be changed by modifier, so checking each step)
 			if (!ModdedRule.Enabled)
 				continue;

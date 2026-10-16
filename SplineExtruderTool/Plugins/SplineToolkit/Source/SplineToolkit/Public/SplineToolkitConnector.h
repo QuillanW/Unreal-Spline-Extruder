@@ -85,6 +85,9 @@ public:
 	// Automatically find the 2 closest points between the attached spline and the given target spline
 	void AutoAttach(USplineComponent* Target);
 	
+	// Detach a spline from this one
+	void Detach(const USplineComponent* Target, ESplineEnd AtEnd = ESplineEnd::Both);
+	
 	// Automatically find the closest possible spline to attach to
 	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit")
 	void FullAutoAttach();
