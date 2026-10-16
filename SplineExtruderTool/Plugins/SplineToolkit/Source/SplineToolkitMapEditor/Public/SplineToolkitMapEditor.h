@@ -10,7 +10,7 @@
 #include "Widgets/Input/SButton.h"
 #include "SplineToolkitMapEditor.generated.h"
 
-enum class ESplineToolkitEditorModes : uint8 { None, Select, Connect, Disconnect, UpdateRuleset };
+enum class ESplineToolkitEditorModes : uint8 { None, Create, Select, Connect, Disconnect, UpdateRuleset };
 
 // Widget helper forces the gizmo to be allowed enabled
 class FSplineWidgetHelper : public FLegacyEdModeWidgetHelper
@@ -56,7 +56,11 @@ protected:
 	
 	USplineComponent* FindClosestSpline(const FVector& Pos, bool& EndClosest) const;
 	USplineComponent* FindClosestSpline(const FVector& Pos) const;
+	void VerifyComponents(const USplineComponent* Spline);
+	void AddSpline(AActor* Actor);
+	void SetRuleset(USplineComponent* Spline) const;
 	
+	virtual void CreateNewSpline(FVector ClickPos);
 	virtual void SelectClosestSpline(FVector ClickPos);
 	virtual void ConnectSplines(FVector ClickPos);
 	virtual void DisconnectSplines(FVector ClickPos);
@@ -64,8 +68,11 @@ protected:
 	
 	
 	ESplineToolkitEditorModes CurrentEditMode = ESplineToolkitEditorModes::Select;
-	USplineComponent* SelectedSpline = nullptr;
-	USplineComponent* LastSelectedSpline = nullptr;
+	UPROPERTY()
+	TObjectPtr<USplineComponent> SelectedSpline = nullptr;
+	UPROPERTY()
+	TObjectPtr<USplineComponent> LastSelectedSpline = nullptr;
+	FVector LastPoint = FVector::ZeroVector;
 	bool bLastSelectedSplineEnd = false;
 	
 	TSharedPtr<SWidget> ViewportPanel;

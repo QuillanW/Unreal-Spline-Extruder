@@ -55,13 +55,16 @@ void USplineToolkitConnector::AutoAttach(USplineComponent* Target)
 void USplineToolkitConnector::Detach(const USplineComponent* Target, ESplineEnd AtEnd)
 {
 	if (AtEnd == ESplineEnd::None) return;
-	for (const auto& Connection : Connections)
+	for (int32 i = 0; i < Connections.Num(); i++)
 	{
+		const auto Connection = Connections[i];
 		if (Connection.ToSpline != Target) continue;
-		if (AtEnd != ESplineEnd::Both)
-		{
-			if ()
-		}
+		if (AtEnd != ESplineEnd::Both && Connection.bFromEnd != (AtEnd == ESplineEnd::End))
+			continue;
+		Connections.Remove(Connection);
+		auto* OtherConnector = Connection.ToSpline->GetOwner()->GetComponentByClass<USplineToolkitConnector>();
+		OtherConnector->Detach(SplineComponent, Connection.bToEnd ? ESplineEnd::End : ESplineEnd::Start);
+		break;
 	}
 	Validate();
 }

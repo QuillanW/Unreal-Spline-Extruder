@@ -42,6 +42,8 @@ bool USplineToolkitEditMode::HandleClick(FEditorViewportClient* InViewportClient
 	
 	switch (CurrentEditMode)
 	{
+	case ESplineToolkitEditorModes::Create:
+		CreateNewSpline(ClickedPos);
 	case ESplineToolkitEditorModes::Select:
 		SelectClosestSpline(ClickedPos);
 		break;
@@ -67,10 +69,11 @@ bool USplineToolkitEditMode::InputKey(FEditorViewportClient* ViewportClient, FVi
 	// Hotkeys for different edit modes
 	if (Event == IE_Pressed)
 	{
-		if (Key == EKeys::One)   { CurrentEditMode = ESplineToolkitEditorModes::Select;        return true; }
-		if (Key == EKeys::Two)   { CurrentEditMode = ESplineToolkitEditorModes::Connect;       return true; }
-		if (Key == EKeys::Three) { CurrentEditMode = ESplineToolkitEditorModes::Disconnect;    return true; }
-		if (Key == EKeys::Four)  { CurrentEditMode = ESplineToolkitEditorModes::UpdateRuleset; return true; }
+		if (Key == EKeys::One)   { CurrentEditMode = ESplineToolkitEditorModes::Create;        return true; }
+		if (Key == EKeys::Two)   { CurrentEditMode = ESplineToolkitEditorModes::Select;        return true; }
+		if (Key == EKeys::Three)   { CurrentEditMode = ESplineToolkitEditorModes::Connect;       return true; }
+		if (Key == EKeys::Four) { CurrentEditMode = ESplineToolkitEditorModes::Disconnect;    return true; }
+		if (Key == EKeys::Five)  { CurrentEditMode = ESplineToolkitEditorModes::UpdateRuleset; return true; }
 	}
 	
 	return Super::InputKey(ViewportClient, Viewport, Key, Event);
@@ -102,6 +105,7 @@ void USplineToolkitEditMode::SetEditMode(ESplineToolkitEditorModes Mode)
 	CurrentEditMode = Mode;
 	SelectedSpline = nullptr;
 	LastSelectedSpline = nullptr;
+	GEditor->SelectNone(true, true);
 }
 
 void USplineToolkitEditMode::CreateToolkit()
@@ -112,6 +116,7 @@ void USplineToolkitEditMode::CreateToolkit()
 TSharedPtr<SWidget> FSplineToolkitModeToolkit::GetInlineContent() const
 {
 	return SNew(SVerticalBox)
+		+ SVerticalBox::Slot().MinHeight(16.f).Padding(4.f)[ MakeButton(INVTEXT("Create"), ESplineToolkitEditorModes::Create) ]
 		+ SVerticalBox::Slot().MinHeight(16.f).Padding(4.f)[ MakeButton(INVTEXT("Select"), ESplineToolkitEditorModes::Select) ]
 		+ SVerticalBox::Slot().MinHeight(16.f).Padding(4.f)[ MakeButton(INVTEXT("Connect"), ESplineToolkitEditorModes::Connect) ]
 		+ SVerticalBox::Slot().MinHeight(16.f).Padding(4.f)[ MakeButton(INVTEXT("Disconnect"), ESplineToolkitEditorModes::Disconnect) ]

@@ -10,14 +10,14 @@
     <Platform Name="Win64-arm64ec" />
   </Configurations>
   <Folder Name="/Engine/">
-    <Project Path="Intermediate/ProjectFiles/UE5.vcxproj" Id="477bfbae-63a7-337f-aa2e-b9a88de41a04">
+    <Project Path="Intermediate/ProjectFiles/UE5.vcxproj" Id="29b93f65-73bf-39bd-a483-611951fbb4ad">
       <BuildType Project="BuiltWithUnrealBuildTool" />
       <Platform Project="Win64" />
       <Build Project="false" />
     </Project>
   </Folder>
   <Folder Name="/Games/">
-    <Project Path="Intermediate/ProjectFiles/SplineExtruderTool.vcxproj" Id="dff88eff-39de-3b42-adc1-3b1bb1dfc744">
+    <Project Path="Intermediate/ProjectFiles/SplineExtruderTool.vcxproj" Id="acd47c4b-e8b3-315a-89a4-cfeeeeebf848">
       <BuildType Solution="DebugGame Editor|Win64" Project="DebugGame_Editor" />
       <BuildType Solution="DebugGame Editor|Win64-arm64" Project="DebugGame_Editor" />
       <BuildType Solution="DebugGame Editor|Win64-arm64ec" Project="Win64_arm64ec_DebugGame_Editor" />
@@ -33,9 +33,9 @@
     </Project>
   </Folder>
   <Folder Name="/Visualizers/">
-    <File Path="../../../../Epic Games/UE_5.8/Engine/Extras/VisualStudioDebugging/Unreal.natjmc" />
-    <File Path="../../../../Epic Games/UE_5.8/Engine/Extras/VisualStudioDebugging/Unreal.natstepfilter" />
-    <File Path="../../../../Epic Games/UE_5.8/Engine/Extras/VisualStudioDebugging/Unreal.natvis" />
+    <File Path="../../../../../../../../Program Files/Epic Games/UE_5.8/Engine/Extras/VisualStudioDebugging/Unreal.natjmc" />
+    <File Path="../../../../../../../../Program Files/Epic Games/UE_5.8/Engine/Extras/VisualStudioDebugging/Unreal.natstepfilter" />
+    <File Path="../../../../../../../../Program Files/Epic Games/UE_5.8/Engine/Extras/VisualStudioDebugging/Unreal.natvis" />
   </Folder>
   <Properties Name="ddbf523f-7eb6-4887-bd51-85a714ff87eb">
     <Property Name="AvailablePlatforms" Value="Win64" />
