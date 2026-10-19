@@ -105,13 +105,16 @@ void USplineToolkitFiller::RegenerateInternal(const USplineToolkitFiller* Caller
 
 	if (IntersectionSolver->Collisions.IsEmpty())
 	{
+		for (auto& [_, Actor] : this->SpawnedActors)
+			Actor->Destroy();
 		this->SpawnedActors.Empty();
 		return;
 	}
 
 	int32 IntersectionIndex = 0;
-	for (const auto& Intersection : IntersectionSolver->Collisions)
+	for (int32 I = 0; I < IntersectionSolver->Collisions.Num(); ++I, ++IntersectionIndex)
 	{
+		const auto& Intersection = IntersectionSolver->Collisions[I];
 		auto Collision = DetermineCollisionPoints(Intersection);
 		if (Collision.IsEmpty())
 			continue;
@@ -123,20 +126,19 @@ void USplineToolkitFiller::RegenerateInternal(const USplineToolkitFiller* Caller
 		if (!SolverB)
 			continue;
 
-		auto* IntersectionBPtr = SolverB->Collisions.FindByPredicate(
+		int32 IntersectionIndexB = SolverB->Collisions.IndexOfByPredicate(
 			[&](const FSplineToolkitSplineIntersection& TestIntersection)
 			{
 				return TestIntersection.Other == this->SplineComponent && (TestIntersection.Midpoint - Intersection.
 					Midpoint).SquaredLength() < 100.f;
 			});
-
-		if (!IntersectionBPtr)
+		if (IntersectionIndexB == INDEX_NONE)
 			continue;
 
 		const int32 SplineIndex = GetOwner()->GetUniqueID() < Intersection.Other->GetOwner()->GetUniqueID() ? 0 : 1;
 
 		// Flip intersection range when the tangents are pointing opposite
-		auto IntersectionB = *IntersectionBPtr;
+		auto IntersectionB = SolverB->Collisions[IntersectionIndexB];
 		auto* SplineA = SplineIndex == 0 ? this->SplineComponent : Intersection.Other;
 		auto* SplineB = SplineIndex == 1 ? this->SplineComponent : Intersection.Other;
 		auto TangentA = SplineA->
@@ -146,7 +148,8 @@ void USplineToolkitFiller::RegenerateInternal(const USplineToolkitFiller* Caller
 		bool bFlip = TangentA.Dot(TangentB) < 0.f;
 
 		FConnectCtx Ctx{
-			.IntersectionIndex = IntersectionIndex++,
+			.IntersectionIndex = IntersectionIndex,
+			.IntersectionIndexB = IntersectionIndexB,
 			.Collisions = &Collision,
 			.Intersection = Intersection,
 			.IntersectionPtr = &Intersection,
@@ -166,6 +169,7 @@ void USplineToolkitFiller::RegenerateInternal(const USplineToolkitFiller* Caller
 		if (auto* Filler = Intersection.Other->GetOwner()->FindComponentByClass<USplineToolkitFiller>();
 			Filler && !Caller)
 			Filler->RegenerateInternal(this);
+		HandleHalfwayTangents(Ctx);
 	}
 
 	// Remove unused actors
@@ -595,8 +599,7 @@ TOptional<USplineToolkitFiller::FSplineNodeData> USplineToolkitFiller::GetPositi
 
 		float Distance = 0.f;
 		float DistanceB = 0.f;
-		const auto* Candidate = Candidates[Params.IntersectionIndex].Value;
-		DrawDebugSphere(GetWorld(), Candidate->Midpoint, 10.f, 16, FColor::Cyan);
+		const auto* Candidate = Candidates[FMath::Clamp(Params.IntersectionIndex, 0ui8, Candidates.Num() - 1ui8)].Value;
 		const bool bIsA = Candidate->SplineA == Spline;
 		const bool bIsB = Candidate->SplineB == Spline;
 		if (bIsA || bIsB)
@@ -636,7 +639,7 @@ void USplineToolkitFiller::RegenerateConnectRule(const FConnectCtx& Ctx, int32 R
 		return;
 	}
 
-	TObjectPtr<AActor> Actor = nullptr;
+	TObjectPtr<AActor> Actor = nullptr;\
 	int32 MapIndex = GetMapIndex(Ctx.IntersectionIndex, RuleIndex);
 	if (auto* Found = SpawnedActors.Find(MapIndex); Found && IsValid(*Found))
 	{
@@ -652,6 +655,8 @@ void USplineToolkitFiller::RegenerateConnectRule(const FConnectCtx& Ctx, int32 R
 #endif
 		this->SpawnedActors.Emplace(MapIndex, Actor);
 	}
+
+	auto& Tangents = this->RuleTangents.FindOrAdd(MapIndex);
 
 	// Me having to make this lambda is saying something about the engine
 	auto AddComponent = [this, &Actor]<typename TComponent>(const bool bMakeRoot = false) -> TComponent*
@@ -725,6 +730,9 @@ void USplineToolkitFiller::RegenerateConnectRule(const FConnectCtx& Ctx, int32 R
 		SplineArriveTangent *= -TimeDifference;
 	}
 
+	Tangents.Key = SplineLeaveTangent;
+	Tangents.Value = SplineArriveTangent;
+
 	if (SplineComp->GetNumberOfSplinePoints() == 0)
 	{
 		SplineComp->AddSplinePoint(SplineStart, ESplineCoordinateSpace::World);
@@ -763,9 +771,6 @@ void USplineToolkitFiller::RegenerateConnectRule(const FConnectCtx& Ctx, int32 R
 		Extruder->Overrides.Distance = bOnSameSpline ? TOptional{FVector2f{DistanceStart, DistanceEnd}} : NullOpt;
 
 		// Tangent overrides
-		USplineComponent* SplineA = Rule.SplineIndex == Ctx.SplineIndex
-			                            ? this->SplineComponent
-			                            : Ctx.Intersection.Other;
 		USplineComponent* SplineB = Rule.SplineIndex == Ctx.SplineIndex
 			                            ? Ctx.Intersection.Other
 			                            : this->SplineComponent;
@@ -776,49 +781,138 @@ void USplineToolkitFiller::RegenerateConnectRule(const FConnectCtx& Ctx, int32 R
 
 			bool bIsStart = Params == Rule.Start;
 
-			const float DistA = bIsStart ? DistanceStart : DistanceEnd;
 			const float DistB = bIsStart ? DistanceStartB : DistanceEndB;
 
-			const FVector TangentA = SplineA->GetTangentAtDistanceAlongSpline(DistA, ESplineCoordinateSpace::World).
-			                                  GetSafeNormal();
-			const FVector TangentB = SplineB->GetTangentAtDistanceAlongSpline(DistB, ESplineCoordinateSpace::World).
-			                                  GetSafeNormal();
-			const FVector PosA = SplineA->GetLocationAtDistanceAlongSpline(DistA, ESplineCoordinateSpace::World);
+			const FVector TangentB = -SplineB->GetTangentAtDistanceAlongSpline(DistB, ESplineCoordinateSpace::World).
+			                                   GetSafeNormal();
+			const FVector PosA = bIsStart ? SplineStart : SplineEnd;
 			const FVector PosB = SplineB->GetLocationAtDistanceAlongSpline(DistB, ESplineCoordinateSpace::World);
+
+			FVector NormalB = FVector::UpVector.Cross(TangentB).GetSafeNormal();
+			if ((NormalB | (PosB - PosA)) < 0.f)
+				NormalB = -NormalB;
 
 			switch (Params.TangentDirection)
 			{
-			case EConnectionTangentDirection::UNAFFECTED:
-				return NullOpt;
 			case EConnectionTangentDirection::FACE_OTHER_SPLINE:
-			{
-				FVector Normal = FVector::UpVector.Cross(TangentB).GetSafeNormal();
-				if ((Normal | (PosB - PosA)) < 0.f)
-					Normal = -Normal;
-				return Normal;
+				return NormalB;
+			default:
+				return NullOpt;
 			}
-			case EConnectionTangentDirection::HALFWAY:
-			{
-				// Path runs along A into the junction, then out along B.
-				const FVector DirAIn = bIsStart ? -TangentA : TangentA;
-				// B's direction away from the junction: toward its longer remaining side
-				const bool bBExtendsForward = (SplineB->GetSplineLength() - DistB) >= DistB;
-				const FVector DirBOut = bBExtendsForward ? TangentB : -TangentB;
-
-				FVector Miter = DirAIn + DirBOut;
-				if (Miter.IsNearlyZero())
-					return NullOpt; // antiparallel, no miter
-				Miter = Miter.GetSafeNormal();
-				if ((Miter | TangentA) < 0.f) // keep the profile from flipping
-					Miter = -Miter;
-				return Miter;
-			}
-			}
-			return NullOpt;
 		};
 
 		Extruder->Overrides.StartTangent = GetTangentOverride(Rule.Start);
 		Extruder->Overrides.EndTangent = GetTangentOverride(Rule.End);
+	}
+}
+
+
+static bool ShouldCheckHalfway(const FSplineToolkitFillingConnectRuleParams& Params)
+{
+	return Params.Type == EFillAnchorType::INTERSECT_RULE && FMath::IsNearlyZero(Params.OffsetDistance) && Params.
+		RuleType == ESplineToolkitRuleType::EXTRUSION;
+}
+
+
+void USplineToolkitFiller::HandleHalfwayTangents(const FConnectCtx& Ctx)
+{
+	auto* Other = Ctx.Intersection.Other->GetOwner()->GetComponentByClass<USplineToolkitFiller>();
+
+	if (!Other)
+		return;
+
+	for (int32 I = 0; I < Ctx.Rules->ConnectRules.Num(); ++I)
+	{
+		const auto& Rule = Ctx.Rules->ConnectRules[I];
+
+		int32 MapIndex = GetMapIndex(Ctx.IntersectionIndex, I);
+		if (!this->SpawnedActors.Contains(MapIndex))
+			continue;
+
+		const auto& Actor = this->SpawnedActors[MapIndex];
+
+		if (!IsValid(Actor))
+			continue;
+
+		auto* Extruder = Actor->GetComponentByClass<USplineToolkitMeshExtruder>();
+
+		if (!Extruder || !IsValid(Extruder))
+			continue;
+
+		const auto& Tangents = this->RuleTangents[MapIndex];
+
+		auto CheckNode = [&](const FSplineToolkitFillingConnectRuleParams& Params)
+		{
+			if (!ShouldCheckHalfway(Params))
+				return;
+
+			bool bIsStart = Params == Rule.Start;
+			const FVector Tangent = (bIsStart ? Tangents.Key : Tangents.Value).GetSafeNormal();
+			TOptional<FVector>* Override = bIsStart
+				                               ? &Extruder->Overrides.StartTangent
+				                               : &Extruder->Overrides.EndTangent;
+
+			for (int32 J = I + 1; J < Ctx.Rules->ConnectRules.Num(); ++J)
+			{
+				const auto& RuleB = Ctx.Rules->ConnectRules[J];
+
+				int32 MapIndexB = GetMapIndex(Ctx.IntersectionIndex, J);
+				int32 MapIndexBSplineB = GetMapIndex(Ctx.IntersectionIndexB, J);
+				const TObjectPtr<AActor>* ActorB = nullptr;
+				const TPair<FVector, FVector>* TangentsB = nullptr;
+
+				if (this->SpawnedActors.Contains(MapIndexB))
+				{
+					ActorB = &this->SpawnedActors[MapIndexB];
+					if (this->RuleTangents.Contains(MapIndexB))
+						TangentsB = &this->RuleTangents[MapIndexB];
+				}
+				else if (Other->SpawnedActors.Contains(MapIndexBSplineB))
+				{
+					ActorB = &Other->SpawnedActors[MapIndexBSplineB];
+					if (Other->RuleTangents.Contains(MapIndexBSplineB))
+						TangentsB = &Other->RuleTangents[MapIndexBSplineB];
+				}
+
+				if (!ActorB || !TangentsB || !IsValid(*ActorB))
+					continue;
+
+				auto* ExtruderB = (*ActorB)->GetComponentByClass<USplineToolkitMeshExtruder>();
+
+				auto CheckNodeB = [&](const FSplineToolkitFillingConnectRuleParams& ParamsB)
+				{
+					if (!ShouldCheckHalfway(ParamsB))
+						return false;
+
+					const bool bSwapped =
+						ParamsB.SplineIndex == Rule.SplineIndex && ParamsB.RuleType == Rule.RuleType && ParamsB.
+						RuleIndex == Rule.RuleIndex &&
+						Params.SplineIndex == RuleB.SplineIndex && Params.RuleType == RuleB.RuleType && Params.RuleIndex
+						== RuleB.RuleIndex;
+					if (!bSwapped)
+						return false;
+
+					bool bIsStartB = ParamsB == RuleB.Start;
+					FVector TangentB = (bIsStartB ? TangentsB->Key : TangentsB->Value).GetSafeNormal();
+					if (bIsStart == bIsStartB)
+						TangentB *= -1.f;
+					TOptional<FVector>* OverrideB = bIsStartB
+						                                ? &ExtruderB->Overrides.StartTangent
+						                                : &ExtruderB->Overrides.EndTangent;
+
+					const FVector HalfwayTangent = (Tangent + TangentB).GetSafeNormal();
+					*Override = HalfwayTangent;
+					*OverrideB = HalfwayTangent;
+					return true;
+				};
+				if (CheckNodeB(RuleB.Start))
+					break;
+				if (CheckNodeB(RuleB.End))
+					break;
+			}
+		};
+		CheckNode(Rule.Start);
+		CheckNode(Rule.End);
 	}
 }
 

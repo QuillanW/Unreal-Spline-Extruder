@@ -45,6 +45,7 @@ private:
 	UPROPERTY()
 	// Multiple indices (16-bit intersection index, 16-bit rule index)
 	TMap<int32, TObjectPtr<AActor>> SpawnedActors;
+	TMap<int32, TPair<FVector, FVector>> RuleTangents;
 	int32 GetMapIndex(int32 IntersectionIndex, int32 RuleIndex);
 
 	bool bRegenerate = false;
@@ -93,6 +94,7 @@ private:
 	struct FConnectCtx
 	{
 		int32 IntersectionIndex;
+		int32 IntersectionIndexB;
 		const TArray<FCollisionPoint>* Collisions;
 		FSplineToolkitSplineIntersection Intersection;
 		const FSplineToolkitSplineIntersection* IntersectionPtr;
@@ -117,6 +119,9 @@ private:
 	                           const FSplineToolkitFillingConnectRule& Rule,
 	                           const void* GeneratorRule,
 	                           UClass* GeneratorClass);
+
+	// A simple search algorithm to handle halfway tangent overrides
+	void HandleHalfwayTangents(const FConnectCtx& Ctx);
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
