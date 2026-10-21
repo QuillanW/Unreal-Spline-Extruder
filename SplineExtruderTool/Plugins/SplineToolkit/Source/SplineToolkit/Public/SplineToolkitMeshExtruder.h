@@ -115,11 +115,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
 	USplineToolkitRuleset* Ruleset = nullptr;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
+	FSplineToolkitExtrusionOverrides Overrides;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	USplineComponent* SplineComponent = nullptr;
 
 	// Only used internally
-	bool bIgnoreIntersectCutouts = false;
+	TArray<TPair<int32, const FSplineToolkitSplineIntersection*>> IgnoreIntersectCutouts{};
 
 private:
 
@@ -133,8 +136,9 @@ private:
 	TArray<FSplineToolkitExtruderMeshData> OutMeshes;
 
 	void ExtractOriginSlice(UStaticMesh* InputMesh, FSplineToolkitExtruderMeshData& Data) const;
-	
-	USplineToolkitRulesetModifierBase* GetOrCreateModifierInstance(TSubclassOf<USplineToolkitRulesetModifierBase> Class);
+
+	USplineToolkitRulesetModifierBase*
+	GetOrCreateModifierInstance(TSubclassOf<USplineToolkitRulesetModifierBase> Class);
 
 	static TArray<int32> ComputeEndCap(const FSplineToolkitExtruderMeshData& Data, int32 IndexOffset,
 	                                   bool InvertOrdering);
@@ -142,10 +146,24 @@ private:
 	                                   const TArray<FVector>& Positions, const TMap<int32, TArray<int32>>&
 	                                   UsedIndices);
 
-	void AddStartCap(USplineToolkitIntersectionSolver* Solver, FSplineToolkitExtruderDrawData& DrawData,
-	                 const FSplineToolkitExtrusionRule& Rule, const FSplineToolkitExtruderMeshData& Data) const;
-	void AddEndCap(USplineToolkitIntersectionSolver* Solver, FSplineToolkitExtruderDrawData& DrawData,
-	               const FSplineToolkitExtrusionRule& Rule, const FSplineToolkitExtruderMeshData& Data) const;
+
+	struct FGenerationContext
+	{
+		USplineToolkitIntersectionSolver* Solver;
+		FSplineToolkitExtruderDrawData& DrawData;
+		const FSplineToolkitExtrusionRule& Rule;
+		int32 RuleIndex;
+		const FSplineToolkitExtruderMeshData& Data;
+	};
+
+
+	void AddStartCap(FGenerationContext& Ctx) const;
+	void AddEndCap(FGenerationContext& Ctx) const;
+
+
+	void ApplyTangentOverride(const FGenerationContext& Ctx, const FSplineToolkitExtrusionRule& ModdedRule,
+	                          int32 VertexPtr, const FMatrix& Rotation, const FVector& OriginalTangent,
+	                          FVector& TangentOverride) const;
 
 	/// Appends a new instance of the slice to the draw data
 	/// Returns a couple of things of data:
@@ -153,20 +171,18 @@ private:
 	///		The index in the RMF array
 	///		The index into the vertex list
 	///	The return value indices that no new sample was added (end of spline)
-	bool AddNextSampleToMesh(USplineToolkitIntersectionSolver* Solver,
-	                         FSplineToolkitExtruderDrawData& DrawData, const FSplineToolkitExtrusionRule& Rule,
-	                         const FSplineToolkitExtruderMeshData& Data, FSplineToolkitRmfSample& OutRmfSample,
+	bool AddNextSampleToMesh(FGenerationContext& Ctx, FSplineToolkitRmfSample& OutRmfSample,
 	                         int32& OutVertexPtr, bool& OutDontConnect, bool bCalledFromSelf = false) const;
 
 	void ConnectToPreviousSample(FSplineToolkitExtruderDrawData& DrawData,
 	                             int32 StartIndex, const FSplineToolkitExtruderMeshData& Data) const;
 
-	void ComputeMesh(const FSplineToolkitExtrusionRule& Rule, UProceduralMeshComponent* MeshComponent,
-	                 const FSplineToolkitExtruderMeshData& Data) const;
+	void ComputeMesh(const FSplineToolkitExtrusionRule& Rule, int32 RuleIndex,
+	                 UProceduralMeshComponent* MeshComponent, const FSplineToolkitExtruderMeshData& Data) const;
 
 	UPROPERTY(Transient)
 	TMap<TSubclassOf<USplineToolkitRulesetModifierBase>, USplineToolkitRulesetModifierBase*> ModifierInstanceCache;
-	
+
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
