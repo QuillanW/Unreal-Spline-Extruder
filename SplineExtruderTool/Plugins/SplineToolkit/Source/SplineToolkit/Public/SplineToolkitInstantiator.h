@@ -6,7 +6,6 @@
 #include "Components/SplineComponent.h"
 #include "CoreMinimal.h"
 #include "SplineToolkitIntersectionSolver.h"
-#include "SplineToolkitRmf.h"
 #include "SplineToolkitRuleset.h"
 #include "SplineToolkitInstantiator.generated.h"
 
@@ -38,9 +37,6 @@ protected:
 		TSubclassOf<USplineToolkitRulesetModifierBase> Class);
 
 	void RegenerateInternal();
-	void RegenerateRule(const FSplineToolkitInstantiationRule& Rule, int32 RuleIdx, float TotalLen,
-	                    USplineToolkitRmfSampler* RmfSampler, const USplineToolkitIntersectionSolver* Solver);
-
 	void ReapplyMaterials();
 
 	bool bRegenerate = false;
@@ -80,6 +76,9 @@ public:
 
 	// Only used internally
 	TArray<TPair<int32, const FSplineToolkitSplineIntersection*>> IgnoreIntersectCutouts{};
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	TArray<FSplineToolkitAnchor> Anchors;
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

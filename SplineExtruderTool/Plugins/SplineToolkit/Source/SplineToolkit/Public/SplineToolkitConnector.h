@@ -1,0 +1,119 @@
+// Copyright 2026 Patrick Vreeburg + Quillan Wielhouwer
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Components/ActorComponent.h"
+#include "Components/SplineComponent.h"
+#include "SplineToolkitConnector.generated.h"
+
+UENUM()
+enum class ESplineEnd
+{
+	None,
+	Start,
+	End,
+	Both
+};
+
+USTRUCT(BlueprintType)
+struct FSplineConnection
+{
+	GENERATED_BODY()
+
+	// The spline that is being attached to from this spline
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<USplineComponent> ToSpline;
+
+	// Whether it is connected from the end or beginning of this spline
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bFromEnd = false;
+
+	// Whether it is connected to the end or beginning of the other spline
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bToEnd = false;
+
+	// Whether this connection is enabled within the group of connections
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bEnabled = true;
+	
+	// Whether this connection turns around at the point of connection
+	bool IsInvertedConnection() const
+	{
+		return bFromEnd == bToEnd;
+	}
+	
+	FSplineConnection GetOpposingConnection(USplineComponent* Self) const
+	{
+		FSplineConnection Con;
+		Con.ToSpline = Self;
+		Con.bFromEnd = bToEnd;
+		Con.bToEnd = bFromEnd;
+		Con.bEnabled = bEnabled;
+		return Con;
+	}
+	
+	bool IsOpposingConnection(USplineComponent* Self, const FSplineConnection& Other) const
+	{
+		return Self == Other.ToSpline && 
+		bToEnd == Other.bFromEnd &&
+		bFromEnd == Other.bToEnd;
+	}
+	
+	bool operator==(const FSplineConnection& Other) const
+	{
+		return ToSpline == Other.ToSpline && 
+			bToEnd == Other.bToEnd &&
+				bFromEnd == Other.bFromEnd;
+	}
+	
+};
+
+
+UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+class SPLINETOOLKIT_API USplineToolkitConnector : public UActorComponent
+{
+	GENERATED_BODY()
+protected:
+	virtual void OnRegister() override;
+	
+public:
+
+	// Attach a new spline to this spline
+	void Attach(const FSplineConnection& Connection);
+
+	// Automatically find the 2 closest points between the attached spline and the given target spline
+	void AutoAttach(USplineComponent* Target);
+	
+	// Automatically find the closest possible spline to attach to
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit")
+	void FullAutoAttach();
+
+	// Validate the connections on this component
+	// Removes any invalid connections and make sure the options are followed correctly
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit")
+	void Validate();
+	
+	// Update splines attached to this one to be re aligned
+	UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spline Toolkit", meta = (CPP_Default_Seen = ""))
+	void ReAttach(TArray<USplineComponent*> Seen = TArray<USplineComponent*>(), ESplineEnd End = ESplineEnd::Both);
+
+	// Whether multiple connections are allowed to be enabled in one direction
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
+	bool bAllowMultipleEnabled = false;
+	
+	// Whether multiple connections are allowed to be enabled in one direction
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
+	bool bAutoUpdate = true;
+
+	// A list of the connections to this spline
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit")
+	TArray<FSplineConnection> Connections;
+	
+	// The spline that is attached to this object
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
+	USplineComponent* SplineComponent = nullptr;
+	
+private:
+	bool bUpdateActive = false;
+};

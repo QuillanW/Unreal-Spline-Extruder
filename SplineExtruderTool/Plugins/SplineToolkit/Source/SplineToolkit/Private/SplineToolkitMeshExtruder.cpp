@@ -783,7 +783,7 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(FGenerationContext& Ctx, FS
 	{
 		FSplineToolkitStepContext Context{
 			this->Overrides.ModifierSpline ? this->Overrides.ModifierSpline : this->SplineComponent,
-			Distance
+			OutRmfSample
 		};
 		for (USplineToolkitRulesetModifierBase* Modifier : Ctx.Rule.Modifiers)
 		{
@@ -872,7 +872,6 @@ void USplineToolkitMeshExtruder::ConnectToPreviousSample(FSplineToolkitExtruderD
 
 
 void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& Rule,
-                                             int32 RuleIndex,
                                              UProceduralMeshComponent* MeshComponent,
                                              const FSplineToolkitExtruderMeshData& Data) const
 {
