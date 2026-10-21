@@ -103,9 +103,7 @@ void USplineToolkitInstantiator::RegenerateInternal()
 	if (!this->Ruleset->IsValidLowLevelFast())
 		return;
 
-	const auto* Solver = (this->bIgnoreIntersectCutouts)
-		                     ? nullptr
-		                     : GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
+	const auto* Solver = GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
 
 	auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
 	if (!RmfSampler)

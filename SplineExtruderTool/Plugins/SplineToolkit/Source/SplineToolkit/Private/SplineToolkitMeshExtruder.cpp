@@ -675,7 +675,8 @@ void USplineToolkitMeshExtruder::ApplyTangentOverride(const FGenerationContext& 
 	int32 IterEnd = VertPtr + Ctx.Data.OriginSlice.VertexNum();
 	for (; VertPtr < IterEnd; ++VertPtr)
 	{
-		Ctx.DrawData.Positions[VertPtr] = TangentOverrideRotation.TransformPosition(Ctx.DrawData.Positions[VertPtr] * Scale);
+		Ctx.DrawData.Positions[VertPtr] = TangentOverrideRotation.TransformPosition(
+			Ctx.DrawData.Positions[VertPtr] * Scale);
 		Ctx.DrawData.Normals[VertPtr] = TangentOverrideRotation.TransformVector(Ctx.DrawData.Normals[VertPtr]);
 		Ctx.DrawData.Tangents[VertPtr].TangentX = TangentOverrideRotation.TransformVector(
 			Ctx.DrawData.Tangents[VertPtr].TangentX);
@@ -872,6 +873,7 @@ void USplineToolkitMeshExtruder::ConnectToPreviousSample(FSplineToolkitExtruderD
 
 
 void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& Rule,
+                                             const int32 RuleIndex,
                                              UProceduralMeshComponent* MeshComponent,
                                              const FSplineToolkitExtruderMeshData& Data) const
 {
