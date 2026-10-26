@@ -363,23 +363,6 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRule
 };
 
 
-// Placement rule variant for filling
-USTRUCT(BlueprintType)
-struct FSplineToolkitFillingPlacementRule
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UStaticMesh* Mesh = nullptr;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EFillAnchorType Type = EFillAnchorType::CUTOUT_START;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FVector Offset = FVector::ZeroVector;
-};
-
-
 // Rules for filling intersection areas
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitFillingRules
@@ -399,9 +382,6 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingRules
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FSplineToolkitFillingConnectRule> ConnectRules = {};
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<FSplineToolkitFillingPlacementRule> PlacementRules = {};
 };
 
 

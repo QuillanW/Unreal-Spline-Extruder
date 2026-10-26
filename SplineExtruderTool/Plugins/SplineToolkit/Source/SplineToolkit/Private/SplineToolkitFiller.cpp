@@ -486,6 +486,13 @@ void USplineToolkitFiller::RegenerateConnectRules(const FConnectCtx& Ctx)
 	{
 		if (ConnectRule.SplineIndex != Ctx.SplineIndex)
 		{
+			// Destroy actor if for some reason it's in the map
+			auto MapIndex = GetMapIndex(Ctx.IntersectionIndex, RuleIndex);
+			if (this->SpawnedActors.Contains(MapIndex))
+			{
+				this->SpawnedActors[MapIndex]->Destroy();
+				this->SpawnedActors.Remove(MapIndex);
+			}
 			++RuleIndex;
 			continue;
 		}
