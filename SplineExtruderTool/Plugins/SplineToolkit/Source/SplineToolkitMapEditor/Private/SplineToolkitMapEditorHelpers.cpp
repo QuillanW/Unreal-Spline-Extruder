@@ -102,6 +102,7 @@ void USplineToolkitEditMode::SetRuleset(USplineComponent* Spline) const
 	Actor->GetComponentByClass<USplineToolkitMeshStretcher>()->Ruleset      = SelectedRuleset;
 	Actor->GetComponentByClass<USplineToolkitIntersectionSolver>()->Ruleset = SelectedRuleset;
 	Actor->GetComponentByClass<USplineToolkitFiller>()->Ruleset             = SelectedRuleset;
+	Actor->GetComponentByClass<USplineToolkitFiller>()->bUpdateOnSplineChange       = true;
 	// TODO: Add more components
 	Spline->GetOnSplineChanged().Broadcast();
 }
