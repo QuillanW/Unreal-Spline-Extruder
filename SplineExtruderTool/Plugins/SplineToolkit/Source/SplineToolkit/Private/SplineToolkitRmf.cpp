@@ -191,8 +191,10 @@ FSplineToolkitRmfSample USplineToolkitRmfSampler::InternalGetSampleAtDistance(co
 	const float Roll = -SplineComponent->GetRollAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::Local);
 
 	// Set curvature
-	const float Curvature = acos(Tangent.GetSafeNormal().Dot(Reference.Tangent.GetSafeNormal())) * 1000.0f;
-
+	const float CurveDot = FVector::DotProduct(Tangent.GetSafeNormal(), Reference.Tangent.GetSafeNormal());
+	const float CurveCross = FVector::DotProduct(FVector::CrossProduct(Tangent.GetSafeNormal(), Reference.Tangent.GetSafeNormal()), FVector::UpVector);
+	const float Curvature = FMath::RadiansToDegrees(FMath::Atan2(CurveCross, CurveDot));
+	
 	auto Sample = FSplineToolkitRmfSample{
 		.Position = Position,
 		.Distance = Distance,
