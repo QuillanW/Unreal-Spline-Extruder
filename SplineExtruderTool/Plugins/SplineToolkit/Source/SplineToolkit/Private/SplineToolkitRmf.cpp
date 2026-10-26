@@ -16,7 +16,7 @@ static FAutoConsoleVariableRef CVarShowExtruderRmfCurvature(
 void USplineToolkitRmfSampler::OnRegister()
 {
 	Super::OnRegister();
-	
+
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bTickEvenWhenPaused = true;
 	PrimaryComponentTick.bStartWithTickEnabled = true;
@@ -43,25 +43,25 @@ void USplineToolkitRmfSampler::TickComponent(float DeltaTime, enum ELevelTick Ti
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-		for (const auto& Sample : Samples)
+	for (const auto& Sample : Samples)
+	{
+		if (GSplineToolkitShowRmfSamples)
 		{
-			if (GSplineToolkitShowRmfSamples)
-			{
-				FMatrix CoordinateMatrix{
-					Sample.Bitangent.GetSafeNormal(), Sample.Tangent.GetSafeNormal(), Sample.Reference.GetSafeNormal(),
-					FVector::ZeroVector
-				};
-				DrawDebugCoordinateSystem(GetWorld(), Sample.Position + GetOwner()->GetActorLocation(),
-				                          CoordinateMatrix.Rotator(), 100.f, false, -1, 0,
-				                          3.f);
-			}
-			
-			if (GSplineToolkitShowRmfCurvature)
-			{
-				FVector BasePosition = Sample.Position + GetOwner()->GetActorLocation();
-				DrawDebugLine(GetWorld(), BasePosition, BasePosition + Sample.Bitangent.GetSafeNormal() * Sample.Curvature, FColor::White);
-			}
+			FMatrix CoordinateMatrix{
+				Sample.Bitangent.GetSafeNormal(), Sample.Tangent.GetSafeNormal(), Sample.Reference.GetSafeNormal(),
+				FVector::ZeroVector
+			};
+			DrawDebugCoordinateSystem(GetWorld(), Sample.Position + GetOwner()->GetActorLocation(),
+			                          CoordinateMatrix.Rotator(), 100.f, false, -1, 0,
+			                          3.f);
 		}
+
+		if (GSplineToolkitShowRmfCurvature)
+		{
+			FVector BasePosition = Sample.Position + GetOwner()->GetActorLocation();
+			DrawDebugLine(GetWorld(), BasePosition, BasePosition + Sample.Bitangent.GetSafeNormal() * Sample.Curvature, FColor::White);
+		}
+	}
 }
 
 
@@ -124,8 +124,8 @@ void USplineToolkitRmfSampler::Regenerate()
 	FSplineToolkitRmfSample PrevSample = {
 		.Position = SplineComponent->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::Local),
 		.Distance = 0.0f,
-		.Tangent = SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::Local).GetSafeNormal(),
-		.Reference = SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::Local).GetSafeNormal(),
+		.Tangent = SplineComponent->GetTangentAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
+		.Reference = SplineComponent->GetUpVectorAtSplinePoint(0, ESplineCoordinateSpace::World).GetSafeNormal(),
 		.Roll = StartRoll,
 		.Curvature = 0.0f
 	};
@@ -153,7 +153,7 @@ FSplineToolkitRmfSample USplineToolkitRmfSampler::InternalGetSampleAtDistance(co
 		Distance, ESplineCoordinateSpace::Local);
 
 	const FVector Tangent = this->SplineComponent->GetTangentAtDistanceAlongSpline(
-		                              Distance, ESplineCoordinateSpace::Local).
+		                              Distance, ESplineCoordinateSpace::World).
 	                              GetSafeNormal();
 
 	// Perform the first reflection R_1

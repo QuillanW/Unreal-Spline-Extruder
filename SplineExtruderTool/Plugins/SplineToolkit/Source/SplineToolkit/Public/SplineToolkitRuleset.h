@@ -13,6 +13,32 @@
 
 class USplineToolkitRulesetModifierBase;
 
+/// Utility struct
+USTRUCT(BlueprintType)
+struct FVector2DRange
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector2D Start;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector2D End;
+};
+
+
+/// Utility struct
+USTRUCT(BlueprintType)
+struct FVectorRange
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector Start;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector End;
+};
+
+
 /// An anchor used by rules
 USTRUCT(BlueprintType)
 struct SPLINETOOLKIT_API FSplineToolkitAnchor
@@ -43,7 +69,7 @@ enum class ESplineToolkitStretchConnectionType : uint8 {
 UENUM(BlueprintType)
 enum class ESplineToolkitRuleType : uint8
 {
-	INSTANTIATION UMETA(DisplayName = "Intersection"),
+	INSTANTIATION UMETA(DisplayName = "Instantiation"),
 	EXTRUSION UMETA(DisplayName = "Extrusion"),
 	STRETCH UMETA(DisplayName = "Stretch"),
 };
@@ -75,13 +101,13 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float Spacing = 100.0f;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector Offset = FVector::ZeroVector;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FRotator RotationOffset = FRotator::ZeroRotator;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FVector Scale = FVector::OneVector;
 	
@@ -189,6 +215,70 @@ public:
 
 
 // ===============================
+//      RULE OVERRIDE DATA
+// ===============================
+
+USTRUCT(BlueprintType)
+struct FSplineToolkitInstantiationOverrides
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (ToolTip = "Overrides the spline used for modifier calculation"))
+	USplineComponent* ModifierSpline = nullptr;
+
+	// Unreal really wants this to not be a simple TPair. Have it your way then and use two variables. How readable...
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit",
+		meta = (ToolTip = "Overrides the extruder to only draw one rule"))
+	TOptional<FSplineToolkitInstantiationRule> Rule = NullOpt;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline Toolkit",
+		meta = (ToolTip = "Overrides the extruder to only draw one rule"))
+	TOptional<int32> RuleIndex = NullOpt;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit",
+		meta = (ToolTip = "Only used internally."))
+	TOptional<FVector2f> Distance = NullOpt;
+};
+
+
+USTRUCT(BlueprintType)
+struct FSplineToolkitExtrusionOverrides
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (ToolTip = "Overrides the spline used for modifier calculation"))
+	USplineComponent* ModifierSpline = nullptr;
+
+	// Unreal really wants this to not be a simple TPair. Have it your way then and use two variables. How readable...
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (ToolTip = "Overrides the extruder to only draw one rule"))
+	TOptional<FSplineToolkitExtrusionRule> Rule = NullOpt;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (ToolTip = "Overrides the extruder to only draw one rule"))
+	TOptional<int32> RuleIndex = NullOpt;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (ToolTip = "Sets the size range. Overrides any enabled modifiers"))
+	TOptional<FVector2DRange> Size = NullOpt;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly,
+		meta = (ToolTip = "Only used internally."))
+	TOptional<FVector2f> Distance = NullOpt;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly,
+		meta = (ToolTip = "Only used internally. Only applied in the extruder."))
+	TOptional<FVector> StartTangent = NullOpt;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly,
+		meta = (ToolTip = "Only used internally. Only applied in the extruder."))
+	TOptional<FVector> EndTangent = NullOpt;
+};
+
+
+// ===============================
 //         FILLING RULES
 // ===============================
 
@@ -199,6 +289,16 @@ enum class EFillAnchorType : uint8
 	CUTOUT_START UMETA(DisplayName = "Start of cutout region"),
 	CUTOUT_END UMETA(DisplayName = "End of cutout region"),
 	INTERSECT_RULE UMETA(DisplayName = "Intersection with a rule"),
+};
+
+
+// Where to point the last sample of the connection rule to
+UENUM()
+enum class EConnectionTangentDirection
+{
+	UNAFFECTED UMETA(DisplayName = "Unaffected"),
+	FACE_OTHER_SPLINE UMETA(DisplayName = "Face Other Spline"),
+	HALFWAY UMETA(DisplayName = "Halfway"),
 };
 
 
@@ -214,12 +314,10 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRuleParams
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	uint8 SplineIndex = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite,
-		meta = (EditCondition = "Type == EFillAnchorType::INTERSECT_RULE", EditConditionHides))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	ESplineToolkitRuleType RuleType = ESplineToolkitRuleType::INSTANTIATION;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite,
-		meta = (EditCondition = "Type == EFillAnchorType::INTERSECT_RULE", EditConditionHides))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	uint8 RuleIndex = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite,
@@ -227,8 +325,15 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRuleParams
 			"Counts from the closest intersection point if there are multiple."))
 	uint8 IntersectionIndex = 0;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,
+		meta = (EditCondition = "Type == EFillAnchorType::INTERSECT_RULE", EditConditionHides, ToolTip =
+			"Where to point the tangent to of the last sample."))
+	EConnectionTangentDirection TangentDirection = EConnectionTangentDirection::UNAFFECTED;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float OffsetDistance = 0.f;
+
+	bool operator==(const FSplineToolkitFillingConnectRuleParams&) const = default;
 };
 
 
@@ -252,23 +357,9 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingConnectRule
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FSplineToolkitFillingConnectRuleParams End{};
-};
-
-
-// Placement rule variant for filling
-USTRUCT(BlueprintType)
-struct FSplineToolkitFillingPlacementRule
-{
-	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UStaticMesh* Mesh = nullptr;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EFillAnchorType Type = EFillAnchorType::CUTOUT_START;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FVector Offset = FVector::ZeroVector;
+	int32 NumSamples = 32;
 };
 
 
@@ -279,20 +370,18 @@ struct SPLINETOOLKIT_API FSplineToolkitFillingRules
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float AngleMin = 0.f;
+	float AngleMin = -180.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float AngleMax = 180.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite,
-		meta = (ToolTip = "Set to anything other than -1 to filter only when any rule overlaps a certain amount of times"))
+		meta = (ToolTip =
+			"Set to anything other than -1 to filter only when any rule overlaps a certain amount of times"))
 	int32 IntersectCount = -1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FSplineToolkitFillingConnectRule> ConnectRules = {};
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<FSplineToolkitFillingPlacementRule> PlacementRules = {};
 };
 
 

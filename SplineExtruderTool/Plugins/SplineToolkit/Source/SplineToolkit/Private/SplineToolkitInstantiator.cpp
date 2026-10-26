@@ -103,9 +103,7 @@ void USplineToolkitInstantiator::RegenerateInternal()
 	if (!this->Ruleset->IsValidLowLevelFast())
 		return;
 
-	const auto* Solver = (this->bIgnoreIntersectCutouts)
-		                     ? nullptr
-		                     : GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
+	const auto* Solver = GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
 
 	auto* RmfSampler = GetOwner()->FindComponentByClass<USplineToolkitRmfSampler>();
 	if (!RmfSampler)
@@ -122,9 +120,22 @@ void USplineToolkitInstantiator::RegenerateInternal()
 		// Loop over the spline at a set distance of precision. Applying the rules at each point
 		for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += Rule.Spacing)
 		{
-			auto Sample = RmfSampler->GetSampleAtDistance(CurrentDist);
-			
-			FSplineToolkitStepContext Context{SplineComponent, Sample};
+			float Distance = CurrentDist;
+
+			// Update the distance properly
+			if (this->Overrides.Distance.IsSet())
+			{
+				const auto Override = this->Overrides.Distance.GetValue();
+				const float Time = this->SplineComponent->GetTimeAtDistanceAlongSpline(Distance);
+				Distance = FMath::Lerp(Override.X, Override.Y, Time);
+			}
+
+			auto Sample = RmfSampler->GetSampleAtDistance(Distance);
+
+			FSplineToolkitStepContext Context{
+				this->Overrides.ModifierSpline ? this->Overrides.ModifierSpline : this->SplineComponent,
+				Sample
+			};
 
 			FSplineToolkitInstantiationRule ModdedRule = Rule;
 			for (USplineToolkitRulesetModifierBase* Modifier : Rule.Modifiers)
@@ -146,7 +157,9 @@ void USplineToolkitInstantiator::RegenerateInternal()
 				bool bFound = false;
 				for (const auto& Collision : Solver->Collisions)
 				{
-					if (FMath::IsWithin(CurrentDist, Collision.DistanceMin, Collision.DistanceMax))
+					if (this->IgnoreIntersectCutouts.Contains(TPair<int32, const FSplineToolkitSplineIntersection*>{RuleIdx, &Collision}))
+						continue;
+					if (FMath::IsWithin(Distance, Collision.DistanceMin, Collision.DistanceMax))
 					{
 						bFound = true;
 						break;
@@ -201,14 +214,14 @@ void USplineToolkitInstantiator::RegenerateInternal()
 					InstancerComp->SetStaticMesh(ModdedRule.Mesh);
 					InstancerComp->AddInstance(Transform, false);
 				}
-				
+
 				for (auto Anchor : ModdedRule.Anchors)
 				{
 					auto PlacedAnchor = Anchor;
 					PlacedAnchor.SpawnedLocalLocation = Sample.Position + Rotation.TransformPosition(PlacedAnchor.Offset);
 					Anchors.Add(PlacedAnchor);
 				}
-					
+
 			}
 		}
 
@@ -246,9 +259,9 @@ void USplineToolkitInstantiator::TickComponent(
 
 	if (bRegenerate)
 		RegenerateInternal();
-	
+
 	FVector Offset = GetOwner()->GetActorTransform().GetLocation();
-	
+
 	if (GSplineToolkitShowAnchors)
 		for (const auto& Anchor : Anchors)
 			DrawDebugSphere(GetWorld(), Offset + Anchor.SpawnedLocalLocation, 10.0f, 8, FColor::White);

@@ -21,7 +21,7 @@ struct FSplineToolkitSplineIntersection
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	FVector Midpoint = FVector::ZeroVector;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
-	float AbsoluteAngleDifference;
+	float AngleDifference;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spline Toolkit")
 	USplineComponent* Other;
