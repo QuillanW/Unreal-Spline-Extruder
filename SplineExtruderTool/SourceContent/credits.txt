@@ -1,0 +1,8 @@
+Model credits:
+bvl_afspanning: Patrick Vreeburg
+bvl_brabant: Patrick Vreeburg
+bvl_kabel: Patrick Vreeburg
+Rail: Quillan Wielhouwer
+sein_nr210_nr291c: Tushar Chitan (exported from Roblox Studio, retextured by Patrick Vreeburg)
+sleeper: Patrick Vreeburg
+trackbed_double: Patrick Vreeburg
