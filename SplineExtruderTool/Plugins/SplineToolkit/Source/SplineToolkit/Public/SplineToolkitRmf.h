@@ -24,7 +24,7 @@ struct FSplineToolkitRmfSample
 	float Roll; // This is only needed to calculate relative roll
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	float Curvature;
-
+	
 	bool operator==(const FSplineToolkitRmfSample&) const = default;
 };
 
@@ -55,8 +55,6 @@ public:
 
 	UFUNCTION(CallInEditor, BlueprintCallable)
 	void Regenerate();
-
-private:
 
 	// Used by the public functions after determining a reference (and a distance)
 	FSplineToolkitRmfSample InternalGetSampleAtDistance(const FSplineToolkitRmfSample& Reference, float Distance);

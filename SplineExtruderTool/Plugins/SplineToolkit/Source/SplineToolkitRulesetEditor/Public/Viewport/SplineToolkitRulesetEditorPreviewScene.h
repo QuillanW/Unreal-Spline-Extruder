@@ -7,12 +7,7 @@
 #include "AdvancedPreviewScene.h"
 #include "SplineToolkitRulesetEditorToolkit.h"
 
-enum class SplinePreview
-{
-	Track,
-	Loop,
-	SBend
-};
+enum class SplinePreview { Track, Loop, SBend, LongCurve };
 
 /**
  * 
@@ -22,6 +17,9 @@ class FSplineToolkitRulesetPreviewScene : public FAdvancedPreviewScene
 public:
 	FSplineToolkitRulesetPreviewScene(ConstructionValues CVS, const TSharedRef<FSplineToolkitRulesetEditorToolkit>& EditorToolkit);
 	virtual ~FSplineToolkitRulesetPreviewScene() override;
+	
+	float GetPreviewScale() const { return PreviewScale; }
+	void SetPreviewScale(float NewScale);
 
 	virtual void Tick(float InDeltaTime) override;
 	
@@ -46,4 +44,6 @@ public:
 	
 private:
 	TWeakPtr<FSplineToolkitRulesetEditorToolkit> EditorPtr;
+	
+	float PreviewScale = 10.f;
 };

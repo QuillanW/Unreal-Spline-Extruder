@@ -36,16 +36,16 @@ class SPLINETOOLKIT_API USplineToolkitRulesetModifierBase : public UObject
 
 public:
 	UFUNCTION(BlueprintNativeEvent, Category = "SplineToolkit")
-	FSplineToolkitInstantiationRule ModifyInstantiationStep(const FSplineToolkitStepContext& Context, const FSplineToolkitInstantiationRule& InRule) const;
+	FSplineToolkitInstantiationRule ModifyInstantiationStep(const FSplineToolkitStepContext& Context, const FSplineToolkitInstantiationRule& InRule);
 	UFUNCTION(BlueprintNativeEvent, Category = "SplineToolkit")
-	FSplineToolkitExtrusionRule ModifyExtrusionStep(const FSplineToolkitStepContext& Context, const FSplineToolkitExtrusionRule& InRule) const;
+	FSplineToolkitExtrusionRule ModifyExtrusionStep(const FSplineToolkitStepContext& Context, const FSplineToolkitExtrusionRule& InRule);
 
-	virtual FSplineToolkitInstantiationRule ModifyInstantiationStep_Implementation(const FSplineToolkitStepContext& Context, const FSplineToolkitInstantiationRule& InRule) const
+	virtual FSplineToolkitInstantiationRule ModifyInstantiationStep_Implementation(const FSplineToolkitStepContext& Context, const FSplineToolkitInstantiationRule& InRule)
 	{
 		return InRule;
 	}
 	
-	virtual FSplineToolkitExtrusionRule ModifyExtrusionStep_Implementation(const FSplineToolkitStepContext& Context, const FSplineToolkitExtrusionRule& InRule) const
+	virtual FSplineToolkitExtrusionRule ModifyExtrusionStep_Implementation(const FSplineToolkitStepContext& Context, const FSplineToolkitExtrusionRule& InRule)
 	{
 		return InRule;
 	}

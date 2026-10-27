@@ -26,6 +26,7 @@ public:
 	TSharedPtr<FUICommandInfo> SelectPreviewTrack;
 	TSharedPtr<FUICommandInfo> SelectPreviewLoop;
 	TSharedPtr<FUICommandInfo> SelectPreviewBend;
+	TSharedPtr<FUICommandInfo> SelectPreviewLongCurve;
 	
 	/** Initialize commands */
 	virtual void RegisterCommands() override;

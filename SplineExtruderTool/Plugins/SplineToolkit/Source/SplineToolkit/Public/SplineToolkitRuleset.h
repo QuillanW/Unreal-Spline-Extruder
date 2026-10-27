@@ -64,6 +64,13 @@ enum class ESplineToolkitStretchConnectionType : uint8 {
 	Closest UMETA(DisplayName = "Closest", ToolTip = "Connect to the closest point it can find regardless of direction"),
 };
 
+UENUM(BlueprintType)
+enum class ESplineToolkitAxis : uint8 {
+	X,
+	Y,
+	Z
+};
+
 
 // Rule type
 UENUM(BlueprintType)
@@ -187,6 +194,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	ESplineToolkitStretchConnectionType ConnectionType = ESplineToolkitStretchConnectionType::Sequential;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	ESplineToolkitAxis StretchAxis = ESplineToolkitAxis::Y;
+	
 	// Only used when ConnectionType is set to Closest
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float MaxDistance = 1000.0f;
