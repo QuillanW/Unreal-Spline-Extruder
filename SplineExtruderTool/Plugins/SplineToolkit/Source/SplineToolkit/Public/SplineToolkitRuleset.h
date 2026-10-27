@@ -128,6 +128,9 @@ public:
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bCanCollide = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	bool bCheckIntersections = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)

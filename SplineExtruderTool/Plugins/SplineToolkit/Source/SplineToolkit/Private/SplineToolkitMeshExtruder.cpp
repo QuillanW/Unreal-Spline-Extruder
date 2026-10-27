@@ -158,7 +158,14 @@ void USplineToolkitMeshExtruder::TickComponent(float DeltaTime, enum ELevelTick 
 	}
 
 	if (this->bRegenerate)
+	{
 		RegenerateInternal();
+	}
+	// Only regenerate physics bodies when you let go
+	else if (this->RegeneratePhysicsToggles.Find(true) != INDEX_NONE)
+	{
+		RegeneratePhysics();
+	}
 }
 
 
@@ -204,6 +211,8 @@ void USplineToolkitMeshExtruder::RegenerateInternal()
 	if (this->Overrides.Rule.IsSet())
 	{
 		const auto& Rule = this->Overrides.Rule.GetValue();
+		if (!IsValid(Rule.Mesh))
+			return;
 
 		this->OutMeshes.SetNum(1);
 
@@ -221,22 +230,60 @@ void USplineToolkitMeshExtruder::RegenerateInternal()
 		this->OutMeshes[0].ProceduralMeshComponent = MeshComponent;
 
 		ExtractOriginSlice(Rule.Mesh, this->OutMeshes[0]);
-		ComputeMesh(Rule, this->Overrides.RuleIndex.Get(0), MeshComponent, this->OutMeshes[0]);
+
+		if (!this->OutMeshes[0].OriginSlice.IsEmpty())
+		{
+			ComputeMesh(Rule, this->Overrides.RuleIndex.Get(0), MeshComponent, this->OutMeshes[0]);
+			if (Rule.bCanCollide)
+			{
+				this->RegeneratePhysicsToggles.SetNum(1, true);
+				this->RegeneratePhysicsToggles[0] = true;
+			}
+		}
 	}
 	else
 	{
 		uint32 Ptr = 0;
+		this->RegeneratePhysicsToggles.SetNum(this->Ruleset->ExtrusionRules.Num(), false);
 		for (const auto& Rule : this->Ruleset->ExtrusionRules)
 		{
+			if (!IsValid(Rule.Mesh))
+				return;
+
 			auto& Data = this->OutMeshes[Ptr];
 			ExtractOriginSlice(Rule.Mesh, Data);
+
+			if (Data.OriginSlice.IsEmpty())
+				continue;
 
 			if (auto* MeshComponent = Data.MeshActor->FindComponentByClass<UProceduralMeshComponent>();
 				!Data.OriginSlice.IsEmpty() && MeshComponent)
 			{
 				ComputeMesh(Rule, Ptr, MeshComponent, Data);
+				if (Rule.bCanCollide)
+					this->RegeneratePhysicsToggles[Ptr] = true;
 			}
 			Ptr++;
+		}
+	}
+}
+
+
+void USplineToolkitMeshExtruder::RegeneratePhysics()
+{
+	for (const auto& [bVal, Data] : UE::Zip(this->RegeneratePhysicsToggles, this->OutMeshes))
+	{
+		if (!bVal || !IsValid(Data.MeshActor)) continue;
+
+		auto* Mesh = Data.MeshActor->FindComponentByClass<UProceduralMeshComponent>();
+		if (!Mesh) continue;
+
+		if (const FProcMeshSection* Src = Mesh->GetProcMeshSection(0))
+		{
+			FProcMeshSection Copy = *Src;
+			Copy.bEnableCollision = true;
+			Mesh->SetProcMeshSection(0, Copy);
+			const_cast<FBitReference&>(bVal) = false;
 		}
 	}
 }
@@ -386,6 +433,9 @@ void USplineToolkitMeshExtruder::ExtractOriginSlice(UStaticMesh* InputMesh, FSpl
 			}
 		}
 	}
+
+	if (Data.OriginSlice.IsEmpty())
+		return;
 
 	// Sort the vertices to make a loop
 	TArray<int32> SortedIndices = ReorderToLoop(Indices, Data.OriginSlice.Positions, TranslationTable);
@@ -806,7 +856,7 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(FGenerationContext& Ctx, FS
 		FVector::ZeroVector
 	};
 
-	FMatrix TransformMatrix = FTransform{Rotation.ToQuat(), OutRmfSample.Position}.ToMatrixNoScale();
+	FMatrix TransformMatrix = FTransform{Rotation.ToQuat().GetNormalized(), OutRmfSample.Position}.ToMatrixNoScale();
 
 	if (Rotation.ContainsNaN())
 		return true;
@@ -941,7 +991,7 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
 	DrawData.ShrinkFit();
 
 	MeshComponent->CreateMeshSection(0, DrawData.Positions, DrawData.Indices, DrawData.Normals, DrawData.Uv0, {},
-	                                 DrawData.Tangents, true);
+	                                 DrawData.Tangents, false);
 
 	MeshComponent->SetMaterial(0, Rule.Material);
 	MeshComponent->SetOverlayMaterial(Rule.OverlayMaterial);
