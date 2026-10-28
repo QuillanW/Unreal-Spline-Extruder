@@ -415,22 +415,20 @@ void USplineToolkitMeshExtruder::ExtractOriginSlice(UStaticMesh* InputMesh, FSpl
 	TMap<int32, TArray<int32>> TranslationTable{};
 	// This one is used to generate sorted geometry
 	TMap<int32, int32> BuildTranslationTable{};
+	TArray<FVector> SeenPositions{};
+	for (int32 I = 0; I < Data.OriginSlice.VertexNum(); ++I)
 	{
-		TArray<FVector> SeenPositions{};
-		for (int32 I = 0; I < Data.OriginSlice.VertexNum(); ++I)
+		if (auto FoundIndex = SeenPositions.Find(Data.OriginSlice.Positions[I]); FoundIndex == INDEX_NONE)
 		{
-			if (auto FoundIndex = SeenPositions.Find(Data.OriginSlice.Positions[I]); FoundIndex == INDEX_NONE)
-			{
-				// Not seen yet, no problem
-				SeenPositions.Add(Data.OriginSlice.Positions[I]);
-				TranslationTable.Add(SeenPositions.Num() - 1, TArray{SliceVertices[I]});
-				BuildTranslationTable.Add(SeenPositions.Num() - 1, I);
-			}
-			else
-			{
-				// Seen, add another translation entry
-				TranslationTable[FoundIndex].Add(SliceVertices[I]);
-			}
+			// Not seen yet, no problem
+			SeenPositions.Add(Data.OriginSlice.Positions[I]);
+			TranslationTable.Add(SeenPositions.Num() - 1, TArray{SliceVertices[I]});
+			BuildTranslationTable.Add(SeenPositions.Num() - 1, I);
+		}
+		else
+		{
+			// Seen, add another translation entry
+			TranslationTable[FoundIndex].Add(SliceVertices[I]);
 		}
 	}
 
@@ -438,7 +436,7 @@ void USplineToolkitMeshExtruder::ExtractOriginSlice(UStaticMesh* InputMesh, FSpl
 		return;
 
 	// Sort the vertices to make a loop
-	TArray<int32> SortedIndices = ReorderToLoop(Indices, Data.OriginSlice.Positions, TranslationTable);
+	TArray<int32> SortedIndices = ReorderToLoop(Indices, SeenPositions, TranslationTable);
 
 	// Push that data to the local var
 	FSplineToolkitExtruderDrawData SortedData{};
@@ -879,7 +877,7 @@ bool USplineToolkitMeshExtruder::AddNextSampleToMesh(FGenerationContext& Ctx, FS
 		Ctx.DrawData.Tangents[OutVertexPtr].TangentX = TransformMatrix.TransformVector(
 			Ctx.DrawData.Tangents[OutVertexPtr].TangentX);
 		// Set UVs to distance / totalDistance
-		Ctx.DrawData.Uv0[OutVertexPtr].Y = (OutRmfSample.Distance / TotalSplineDistance) * ModdedRule.UvScale;
+		Ctx.DrawData.Uv0[OutVertexPtr].Y = OutRmfSample.Distance / ModdedRule.UnitsPerUv;
 	}
 
 	return true;
