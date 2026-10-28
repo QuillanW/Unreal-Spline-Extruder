@@ -5,7 +5,7 @@
 	"FriendlyName": "Spline Toolkit",
 	"Description": "",
 	"Category": "Other",
-	"CreatedBy": "",
+	"CreatedBy": "Patrick Vreeburg, Quillan Wielhouwer",
 	"CreatedByURL": "",
 	"DocsURL": "",
 	"MarketplaceURL": "",
@@ -24,11 +24,12 @@
 			"Name": "SplineToolkitRulesetEditor",
 			"Type": "Editor",
 			"LoadingPhase": "Default"
-		},
-		{
-			"Name": "SplineToolkitMapEditor",
-			"Type": "Editor",
-			"LoadingPhase": "Default"
 		}
-	]
+	],
+    "Plugins": [
+        {
+            "Name": "ProceduralMeshComponent",
+            "Enabled": true
+        }
+    ]
 }

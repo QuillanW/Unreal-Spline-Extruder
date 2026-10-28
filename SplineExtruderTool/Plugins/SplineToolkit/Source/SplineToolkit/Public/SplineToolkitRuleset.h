@@ -135,6 +135,9 @@ public:
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bCanCollide = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	bool bCheckIntersections = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -153,7 +156,7 @@ public:
 	FVector2D Scale = FVector2D::One();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float UvScale = 1.0f;
+	float UnitsPerUv = 1.0f;
 
 	UPROPERTY(EditAnywhere, Instanced, BlueprintReadWrite)
 	TArray<TObjectPtr<USplineToolkitRulesetModifierBase>> Modifiers;
