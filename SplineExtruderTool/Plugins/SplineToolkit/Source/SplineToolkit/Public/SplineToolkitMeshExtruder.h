@@ -127,9 +127,11 @@ public:
 private:
 
 	void RegenerateInternal();
+	void RegeneratePhysics();
 	void ReapplyMaterials();
 
 	bool bRegenerate = false;
+	TBitArray<> RegeneratePhysicsToggles;
 
 	// The output meshes
 	UPROPERTY()

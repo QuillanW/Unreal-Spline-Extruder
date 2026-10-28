@@ -106,7 +106,9 @@ void USplineToolkitFiller::RegenerateInternal(const USplineToolkitFiller* Caller
 	if (IntersectionSolver->Collisions.IsEmpty())
 	{
 		for (auto& [_, Actor] : this->SpawnedActors)
-			Actor->Destroy();
+		{
+			if (IsValid(Actor)) Actor->Destroy();
+		}
 		this->SpawnedActors.Empty();
 		return;
 	}
