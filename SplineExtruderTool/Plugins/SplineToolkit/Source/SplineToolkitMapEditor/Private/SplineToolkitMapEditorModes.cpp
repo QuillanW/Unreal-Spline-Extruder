@@ -85,10 +85,11 @@ void USplineToolkitEditMode::DisconnectSplines(FVector ClickPos)
 		
 		LastSelectedSpline = nullptr;
 	}
-	else
+	else 
 	{
 		LastSelectedSpline = FindClosestSpline(ClickPos, bLastSelectedSplineEnd);
-		DrawDebugSphere(GetWorld(), LastSelectedSpline->GetWorldLocationAtTime(bLastSelectedSplineEnd ? 1.0f : 0.0f), 32.0f, 16, FColor::Orange, false, 1.0f);
+		if (LastSelectedSpline)
+			DrawDebugSphere(GetWorld(), LastSelectedSpline->GetWorldLocationAtTime(bLastSelectedSplineEnd ? 1.0f : 0.0f), 32.0f, 16, FColor::Orange, false, 1.0f);
 	}
 }
 
