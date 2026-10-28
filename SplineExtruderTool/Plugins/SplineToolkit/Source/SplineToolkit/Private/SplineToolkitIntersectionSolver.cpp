@@ -3,6 +3,7 @@
 
 #include "SplineToolkitIntersectionSolver.h"
 
+#include "SplineToolkitConnector.h"
 #include "SplineToolkitInstantiator.h"
 #include "SplineToolkitMeshExtruder.h"
 
@@ -355,9 +356,11 @@ TOptional<TArray<FSplineToolkitSplineIntersection>> USplineToolkitIntersectionSo
 		if (SplineIndex == 1)
 			Swap(TangentA, TangentB);
 
-		FSplineToolkitRmfSample Sample = SamplerA->GetSampleAtDistance(this->SplineComponent->GetDistanceAlongSplineAtLocation(Intersection.Midpoint, ESplineCoordinateSpace::World));
+		FSplineToolkitRmfSample Sample = SamplerA->GetSampleAtDistance(
+			this->SplineComponent->GetDistanceAlongSplineAtLocation(Intersection.Midpoint,
+			                                                        ESplineCoordinateSpace::World));
 
-		const float Dot   = FVector::DotProduct(TangentA, TangentB);
+		const float Dot = FVector::DotProduct(TangentA, TangentB);
 		const float Cross = FVector::DotProduct(FVector::CrossProduct(TangentA, TangentB), Sample.Reference);
 
 		Intersection.AngleDifference = FMath::RadiansToDegrees(FMath::Atan2(Cross, Dot));
@@ -419,6 +422,8 @@ void USplineToolkitIntersectionSolver::SolveCollisionsFor(const USplineToolkitIn
 		return;
 	}
 
+	auto* Connector = OwnerA->GetComponentByClass<USplineToolkitConnector>();
+
 	for (TObjectIterator<USplineToolkitRmfSampler> It; It; ++It)
 	{
 		auto* Comp = *It;
@@ -426,6 +431,16 @@ void USplineToolkitIntersectionSolver::SolveCollisionsFor(const USplineToolkitIn
 			continue;
 
 		auto* OwnerB = Comp->GetOwner();
+
+		// Prune intersections on connection areas
+		if (Connector && Connector->Connections.FindByPredicate([OwnerB](const FSplineConnection& Connection)
+		{
+			const auto* Other = Connection.ToSpline.Get();
+			return Other = OwnerB->GetComponentByClass<USplineComponent>();
+		}))
+		{
+			continue;
+		}
 
 		// Get the extruder
 		TestCollisionFor(OwnerB);
