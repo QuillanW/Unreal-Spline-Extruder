@@ -66,15 +66,15 @@ TArray<FVector> LoopTangents = {
 
 TArray<FVector> TrackPoints = {
 	// Long straight
-	FVector(0.f, 0.f, 0.f),
-	FVector(2000.f, 0.f, 0.f),
+	FVector(800.f, 0.f, 0.f),
+	FVector(199.f, 0.f, 0.f), // was 800, start of the corner
 
-	// Tight curve (90°, small radius ~250)
-	FVector(2180.f, 75.f, 0.f),
-	FVector(2250.f, 250.f, 0.f),
+	// Tight curve (two 45 degree arcs, tangent length ~199 for R=250)
+	FVector(141.f, 141.f, 0.f), // was (500, 500)
+	FVector(0.f, 199.f, 0.f), // was (0, 600)
 
 	// Short straight
-	FVector(2250.f, 650.f, 0.f),
+	FVector(0.f, 600.f, 0.f),
 
 	// Wide S-bend (large radius, bulging in X while advancing in Y)
 	FVector(2750.f, 1250.f, 0.f),
@@ -126,10 +126,33 @@ TArray<FVector> TrackTangents = {
 	FVector(-700.f, -1200.f, 250.f)
 };
 
+// Long straight, two large 90 degree curves (U-turn), long straight.
+// Defined at 1/10th size so that the default preview scale of 10x gives 10000 unit straights.
+constexpr float LongStraight = 1000.f;
+constexpr float LongRadius = 500.f;
+// Tangent length for a quarter circle on a cubic Hermite spline: 3 * 0.5523 * R
+constexpr float LongHandle = 3.f * 0.5523f * LongRadius;
+
+TArray<FVector> LongCurvePoints = {
+	FVector(0.f, 0.f, 0.f),
+	FVector(LongStraight, 0.f, 0.f), // end of first straight
+	FVector(LongStraight + LongRadius, LongRadius, 0.f), // end of first curve
+	FVector(LongStraight, 2.f * LongRadius, 0.f), // end of second curve
+	FVector(0.f, 2.f * LongRadius, 0.f) // end of second straight
+};
+
+TArray<FVector> LongCurveTangents = {
+	FVector(LongHandle, 0.f, 0.f),
+	FVector(LongHandle, 0.f, 0.f),
+	FVector(0.f, LongHandle, 0.f),
+	FVector(-LongHandle, 0.f, 0.f),
+	FVector(-LongHandle, 0.f, 0.f)
+};
+
 #pragma endregion
 
 void SetSplinePointsWithTangents(USplineComponent* SplineComponent, const TArray<FVector>& Points,
-                                 const TArray<FVector>& Tangents)
+                                 const TArray<FVector>& Tangents, const float Scale = 1.f)
 {
 	if (!SplineComponent || Points.Num() != Tangents.Num() || Points.Num() == 0)
 	{
@@ -140,12 +163,13 @@ void SetSplinePointsWithTangents(USplineComponent* SplineComponent, const TArray
 
 	for (const FVector& Point : Points)
 	{
-		SplineComponent->AddSplinePoint(Point, ESplineCoordinateSpace::Local, false);
+		SplineComponent->AddSplinePoint(Point * Scale, ESplineCoordinateSpace::Local, false);
 	}
 
+	// Tangents scale with the points, otherwise the curve shapes change
 	for (int32 i = 0; i < Points.Num(); ++i)
 	{
-		SplineComponent->SetTangentAtSplinePoint(i, Tangents[i], ESplineCoordinateSpace::Local, false);
+		SplineComponent->SetTangentAtSplinePoint(i, Tangents[i] * Scale, ESplineCoordinateSpace::Local, false);
 	}
 
 	SplineComponent->UpdateSpline();
@@ -177,7 +201,8 @@ FSplineToolkitRulesetPreviewScene::FSplineToolkitRulesetPreviewScene(Constructio
 	//Hide default floor
 	SetFloorVisibility(false, false);
 
-	UpdateSplinePreview(SplinePreview::Track);
+	CurrentPreview = SplinePreview::Track;
+	UpdateSplinePreview(CurrentPreview);
 }
 
 
@@ -216,13 +241,16 @@ void FSplineToolkitRulesetPreviewScene::UpdateSplinePreview(SplinePreview previe
 	switch (preview)
 	{
 	case SplinePreview::Track:
-		SetSplinePointsWithTangents(Spline, TrackPoints, TrackTangents);
+		SetSplinePointsWithTangents(Spline, TrackPoints, TrackTangents, PreviewScale);
 		break;
 	case SplinePreview::Loop:
-		SetSplinePointsWithTangents(Spline, LoopPoints, LoopTangents);
+		SetSplinePointsWithTangents(Spline, LoopPoints, LoopTangents, PreviewScale);
 		break;
 	case SplinePreview::SBend:
-		SetSplinePointsWithTangents(Spline, SBendPoints, SBendTangents);
+		SetSplinePointsWithTangents(Spline, SBendPoints, SBendTangents, PreviewScale);
+		break;
+	case SplinePreview::LongCurve:
+		SetSplinePointsWithTangents(Spline, LongCurvePoints, LongCurveTangents, PreviewScale);
 		break;
 	}
 
@@ -283,4 +311,11 @@ void FSplineToolkitRulesetPreviewScene::SetPreviewSpline(const SplinePreview Pre
 {
 	CurrentPreview = Preview;
 	UpdateSplinePreview(Preview);
+}
+
+
+void FSplineToolkitRulesetPreviewScene::SetPreviewScale(const float NewScale)
+{
+	PreviewScale = FMath::Max(NewScale, 0.01f);
+	UpdateSplinePreview(CurrentPreview);
 }

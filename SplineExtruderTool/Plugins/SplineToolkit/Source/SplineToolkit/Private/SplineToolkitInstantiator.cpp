@@ -117,8 +117,10 @@ void USplineToolkitInstantiator::RegenerateInternal()
 	// Go over each rule
 	for (const auto& Rule : this->Ruleset->InstantiationRules)
 	{
-		// Loop over the spline at a set distance of precision. Applying the rules at each point
-		for (float CurrentDist = 0.0f; CurrentDist <= TotalLen; CurrentDist += Rule.Spacing)
+		auto LastSample = RmfSampler->GetSampleAtDistance(0.0f);
+
+		float CurrentDist = 0.0f;
+		while (CurrentDist <= TotalLen)
 		{
 			float Distance = CurrentDist;
 
@@ -130,7 +132,8 @@ void USplineToolkitInstantiator::RegenerateInternal()
 				Distance = FMath::Lerp(Override.X, Override.Y, Time);
 			}
 
-			auto Sample = RmfSampler->GetSampleAtDistance(Distance);
+			const auto Sample = RmfSampler->InternalGetSampleAtDistance(LastSample, Distance);
+			LastSample = Sample;
 
 			FSplineToolkitStepContext Context{
 				this->Overrides.ModifierSpline ? this->Overrides.ModifierSpline : this->SplineComponent,
@@ -143,11 +146,11 @@ void USplineToolkitInstantiator::RegenerateInternal()
 				if (!Modifier) continue;
 				ModdedRule = Modifier->ModifyInstantiationStep(Context, ModdedRule);
 			}
-			
-			CurrentDist -= Rule.Spacing - fmax(ModdedRule.Spacing, 1.0f);
-			Sample = RmfSampler->GetSampleAtDistance(CurrentDist);
-			
-			// Check if enabled (Can be changed by modifier, so checking each step)
+
+			// The spacing from the modifiers is the gap between this instance and the next one.
+			// Advance first so the `continue`s below can't skip it.
+			CurrentDist += FMath::Max(ModdedRule.Spacing, 1.0f);
+
 			if (!ModdedRule.Enabled)
 				continue;
 

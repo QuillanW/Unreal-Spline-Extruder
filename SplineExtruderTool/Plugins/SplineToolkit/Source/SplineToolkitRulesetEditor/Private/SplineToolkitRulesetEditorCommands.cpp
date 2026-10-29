@@ -14,6 +14,7 @@ void FAssetEditorTemplateCommands::RegisterCommands()
 	UI_COMMAND(SelectPreviewTrack, "Track", "Change the spline used for the preview", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::P));
 	UI_COMMAND(SelectPreviewLoop, "Loop", "Change the spline used for the preview", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::O));
 	UI_COMMAND(SelectPreviewBend, "S-Bend", "Change the spline used for the preview", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::I));
+	UI_COMMAND(SelectPreviewLongCurve, "Long Curve", "Change the spline used for the preview", EUserInterfaceActionType::RadioButton, FInputChord(EKeys::U));
 }
 
 #undef LOCTEXT_NAMESPACE

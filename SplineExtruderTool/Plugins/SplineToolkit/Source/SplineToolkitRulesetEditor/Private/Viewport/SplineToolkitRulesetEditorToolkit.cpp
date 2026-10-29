@@ -11,6 +11,9 @@
 #include "SplineToolkitRuleset.h"
 #include "Viewport/SplineToolkitRulesetEditorPreviewScene.h"
 #include "Viewport/SplineToolkitRulesetEditorViewport.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Text/STextBlock.h"
 
 #define LOCTEXT_NAMESPACE "SplineToolkitRulesetEditor"
 
@@ -110,6 +113,15 @@ void FSplineToolkitRulesetEditorToolkit::BindCommands()
 		FCanExecuteAction(),
 		FIsActionChecked::CreateLambda([this]() { return PreviewScene->GetCurrentPreview() == SplinePreview::Loop; })
 	);
+	ToolkitCommands->MapAction(
+		Commands.SelectPreviewLongCurve,
+		FExecuteAction::CreateLambda([this] { PreviewScene->SetPreviewSpline(SplinePreview::LongCurve); }),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateLambda([this]()
+		{
+			return PreviewScene->GetCurrentPreview() == SplinePreview::LongCurve;
+		})
+	);
 }
 
 TSharedPtr<FSplineToolkitRulesetPreviewScene> FSplineToolkitRulesetEditorToolkit::CreatePreviewScene()
@@ -138,7 +150,7 @@ void FSplineToolkitRulesetEditorToolkit::ExtendToolbars()
 		"Asset",
 		EExtensionHook::After,
 		GetToolkitCommands(),
-		FToolBarExtensionDelegate::CreateLambda([](FToolBarBuilder& ToolbarBuilder)
+		FToolBarExtensionDelegate::CreateLambda([this](FToolBarBuilder& ToolbarBuilder)
 		{
 			ToolbarBuilder.BeginSection("ExtendToolbarItem");
 
@@ -167,6 +179,46 @@ void FSplineToolkitRulesetEditorToolkit::ExtendToolbars()
 			ToolbarBuilder.AddToolBarButton(FAssetEditorTemplateCommands::Get().SelectPreviewLoop, NAME_None,
 											TAttribute<FText>(), TAttribute<FText>(),
 											FSlateIcon(FAppStyle::GetAppStyleSetName(), "GenericPlay"));
+			ToolbarBuilder.AddToolBarButton(FAssetEditorTemplateCommands::Get().SelectPreviewLongCurve, NAME_None,
+											TAttribute<FText>(), TAttribute<FText>(),
+											FSlateIcon(FAppStyle::GetAppStyleSetName(), "GenericPlay"));
+
+			ToolbarBuilder.AddSeparator();
+
+			ToolbarBuilder.AddWidget(
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(4.f, 0.f)
+				[
+					SNew(STextBlock).Text(LOCTEXT("PreviewScaleLabel", "Scale"))
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(SBox)
+					.WidthOverride(80.f)
+					[
+						SNew(SSpinBox<float>)
+						.MinValue(0.1f)
+						.MaxValue(100.f)
+						.Delta(0.5f)
+						.ToolTipText(LOCTEXT("PreviewScaleTooltip", "Scale of the preview splines"))
+						.Value_Lambda([this]()
+						{
+							return PreviewScene.IsValid() ? PreviewScene->GetPreviewScale() : 1.f;
+						})
+						.OnValueCommitted_Lambda([this](const float NewValue, ETextCommit::Type)
+						{
+							if (!PreviewScene.IsValid()) return;
+							PreviewScene->SetPreviewScale(NewValue);
+							FocusViewport();
+						})
+					]
+				]
+			);
 
 			ToolbarBuilder.EndSection();
 		})

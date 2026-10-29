@@ -171,7 +171,8 @@ void USplineToolkitFiller::RegenerateInternal(const USplineToolkitFiller* Caller
 		if (auto* Filler = Intersection.Other->GetOwner()->FindComponentByClass<USplineToolkitFiller>();
 			Filler && !Caller)
 			Filler->RegenerateInternal(this);
-		HandleHalfwayTangents(Ctx);
+		if (Ctx.Rules)
+			HandleHalfwayTangents(Ctx);
 	}
 
 	// Remove unused actors

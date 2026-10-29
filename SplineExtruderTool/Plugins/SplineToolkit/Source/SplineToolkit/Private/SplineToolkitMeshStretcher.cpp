@@ -76,136 +76,152 @@ void USplineToolkitMeshStretcher::OnRegister()
 void USplineToolkitMeshStretcher::RegenerateInternal()
 {
 	bRegenerate = false;
-	bool Retry = bRetry;
+	const bool Retry = bRetry;
 	bRetry = false;
-	
-	if (!this->Ruleset->IsValidLowLevelFast())
+
+	if (!IsValid(Ruleset))
 	{
 		UE_LOG(LogTemp, Error, TEXT("No ruleset specified"));
 		return;
 	}
-	
-	if (!this->InstantiatorComponent->IsValidLowLevelFast())
+
+	if (!IsValid(InstantiatorComponent))
 	{
 		UE_LOG(LogTemp, Error, TEXT("Stretcher requires USplineToolkitInstantiator"));
 		return;
 	}
-	
-	// Easier to just clear all and regenerate since the components are small and quick to load 
-	// And I'm kinda lazy while writing this at midnight...
+
 	Clear();
-	
+
 	// Get all anchors from the instantiator
 	TMap<FName, TArray<FVector>> Anchors;
 	for (const auto& Anchor : InstantiatorComponent->Anchors)
 		Anchors.FindOrAdd(Anchor.Type).Add(Anchor.SpawnedLocalLocation);
-	
-	TMap<int32, int32> AnchorConnectCount = {};
-	
-	if (Anchors.IsEmpty())
-		if (!Retry) bRetry = true;
-	
-	// Loop over the rules
+
+	if (Anchors.IsEmpty() && !Retry)
+		bRetry = true;
+
 	int32 RuleIdx = -1;
 	for (const auto& Rule : Ruleset->StretchRules)
 	{
 		if (!Anchors.Contains(Rule.StartAnchorType)) continue;
-		if (Rule.ConnectionType == ESplineToolkitStretchConnectionType::Closest)
-			if (!Anchors.Contains(Rule.EndAnchorType)) continue;
-		
+		if (Rule.ConnectionType == ESplineToolkitStretchConnectionType::Closest &&
+			!Anchors.Contains(Rule.EndAnchorType)) continue;
+		if (!IsValid(Rule.Mesh)) continue;
+
 		RuleIdx++;
+
+		// Size of the mesh along the stretch axis, and the rotation that maps that mesh axis onto local X
+		const FBox MeshBox = Rule.Mesh->GetBoundingBox();
+		const FVector MeshSize = MeshBox.GetSize();
+		const FVector BoxCenter = MeshBox.GetCenter();
+
+		double Size = 1.0;
+		FQuat AxisAlign = FQuat::Identity;
+		switch (Rule.StretchAxis)
+		{
+		case ESplineToolkitAxis::X:
+			Size = MeshSize.X;
+			AxisAlign = FQuat::Identity;
+			break;
+		case ESplineToolkitAxis::Y:
+			Size = MeshSize.Y;
+			AxisAlign = FRotator(0.f, -90.f, 0.f).Quaternion(); // Y -> X
+			break;
+		case ESplineToolkitAxis::Z:
+			Size = MeshSize.Z;
+			AxisAlign = FRotator(-90.f, 0.f, 0.f).Quaternion(); // Z -> X
+			break;
+		}
+		if (Size <= KINDA_SMALL_NUMBER) continue;
+
+		// Build the connections
 		TArray<FMeshStretcherInstance> MeshInstances = {};
-		
+		const TArray<FVector>& StartAnchors = Anchors[Rule.StartAnchorType];
+
 		if (Rule.ConnectionType == ESplineToolkitStretchConnectionType::Closest)
 		{
-			for (int32 StartIdx = 0; StartIdx < Anchors[Rule.StartAnchorType].Num() - 1; StartIdx++)
+			const TArray<FVector>& EndAnchors = Anchors[Rule.EndAnchorType];
+			TMap<int32, int32> ConnectCount; // per rule
+
+			for (int32 StartIdx = 0; StartIdx < StartAnchors.Num(); StartIdx++)
 			{
-				FVector StartPoint = Anchors[Rule.StartAnchorType][StartIdx];
-				float ClosestDist = Rule.MaxDistance;
-				int32 AnchorIdx = -1;
-				for (int32 EndIdx = 0; EndIdx < Anchors[Rule.EndAnchorType].Num() - 1; EndIdx++)
+				const FVector StartPoint = StartAnchors[StartIdx];
+				double ClosestDist = Rule.MaxDistance;
+				int32 AnchorIdx = INDEX_NONE;
+
+				for (int32 EndIdx = 0; EndIdx < EndAnchors.Num(); EndIdx++)
 				{
-					if (!AnchorConnectCount.Contains(EndIdx)) 
-						AnchorConnectCount.Add(EndIdx) = 0;
-					
-					FVector Offset = Anchors[Rule.EndAnchorType][EndIdx] - StartPoint;
-					float Dist = Offset.Length();
-					if (Dist > ClosestDist || Dist < Rule.MinDistance || AnchorConnectCount[EndIdx] >= Rule.MaxConnectCount) continue;
+					const double Dist = (EndAnchors[EndIdx] - StartPoint).Length();
+					if (Dist > ClosestDist || Dist < Rule.MinDistance) continue;
+					if (ConnectCount.FindOrAdd(EndIdx) >= Rule.MaxConnectCount) continue;
 					ClosestDist = Dist;
 					AnchorIdx = EndIdx;
-					AnchorConnectCount[EndIdx]++;
 				}
-				
-				if (AnchorIdx != -1)
-					MeshInstances.Add({StartPoint, Anchors[Rule.EndAnchorType][AnchorIdx]});
+
+				if (AnchorIdx != INDEX_NONE)
+				{
+					ConnectCount[AnchorIdx]++;
+					MeshInstances.Add({StartPoint, EndAnchors[AnchorIdx]});
+				}
 			}
 		}
 		else if (Rule.ConnectionType == ESplineToolkitStretchConnectionType::Sequential)
 		{
-			for (int32 Idx = 0; Idx < Anchors[Rule.StartAnchorType].Num() - 1; Idx++)
-			{
-				MeshInstances.Add({Anchors[Rule.StartAnchorType][Idx], Anchors[Rule.StartAnchorType][Idx + 1]});
-			}
+			for (int32 Idx = 0; Idx < StartAnchors.Num() - 1; Idx++)
+				MeshInstances.Add({StartAnchors[Idx], StartAnchors[Idx + 1]});
 		}
-		
-		TObjectPtr<AActor> InstancerActor = {};
-		
-		if (RuleIdx >= SpawnedInstancedMeshes.Num())
-		{
-			InstancerActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass());
-#if WITH_EDITOR
-			InstancerActor->SetActorLabel("SplineStretchInstancer" + FString::FromInt(RuleIdx));
-#endif
-			if (InstancerActor)
-			{
-				SpawnedInstancedMeshes.Add(InstancerActor);
-				UInstancedStaticMeshComponent* NewMeshComp = NewObject<UInstancedStaticMeshComponent>(
-					InstancerActor);
-				NewMeshComp->SetMaterial(0, Rule.Material);
-				NewMeshComp->SetOverlayMaterial(Rule.OverlayMaterial);
-				NewMeshComp->RegisterComponent();
-				InstancerActor->SetRootComponent(NewMeshComp);
-				InstancerActor->AttachToActor(this->GetOwner(),
-											  FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-			}
-		}
-		else
-		{
-			InstancerActor = SpawnedInstancedMeshes[RuleIdx];
-		}
-			
+
+		// Create the instancer actor for this rule
+		AActor* InstancerActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass());
 		if (!InstancerActor) continue;
+#if WITH_EDITOR
+		InstancerActor->SetActorLabel("SplineStretchInstancer" + FString::FromInt(SpawnedInstancedMeshes.Num()));
+#endif
+		SpawnedInstancedMeshes.Add(InstancerActor);
+
+		auto* InstancerComp = NewObject<UInstancedStaticMeshComponent>(InstancerActor);
+		InstancerComp->SetStaticMesh(Rule.Mesh);
+		InstancerComp->SetMaterial(0, Rule.Material);
+		InstancerComp->SetOverlayMaterial(Rule.OverlayMaterial);
+		InstancerComp->RegisterComponent();
+		InstancerActor->SetRootComponent(InstancerComp);
+		InstancerActor->AttachToActor(GetOwner(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 		
+		if (!InstancerActor) continue;
+		if (!InstancerComp) continue;
+		
+		InstancerComp->SetStaticMesh(Rule.Mesh);
+
+		// Place the instances
 		for (const auto& Instance : MeshInstances)
 		{
-			FVector PointA = Instance.StartPos;
-			FVector PointB = Instance.EndPos;
-			FVector Direction = PointB - PointA;
-			FVector Center = PointA + Direction * 0.5f;
-			double Distance = Direction.Length();
-						
-			double Size = Rule.Mesh->GetBoundingBox().GetSize().Y;
-			double Scale = Distance / Size;
-			FVector BoxCenter = Rule.Mesh->GetBoundingBox().GetCenter();
-						
-			// Apply rotation from the rule and offset by 90 degrees (Otherwise model is in wrong axis)
+			const FVector Direction = Instance.EndPos - Instance.StartPos;
+			const double Distance = Direction.Length();
+			if (Distance <= KINDA_SMALL_NUMBER) continue;
+
+			const FVector Center = Instance.StartPos + Direction * 0.5;
+			const double Scale = Distance / Size;
+
 			const FQuat Rotation =
 				Direction.Rotation().Quaternion()
 				* FQuat(FVector::XAxisVector, FMath::DegreesToRadians(Rule.bRollOffset))
-				* FRotator(0.f, -90.f, 0.f).Quaternion();
-						
-			FVector Scale3D = {Rule.Scale.X, Scale, Rule.Scale.Y};
-						
+				* AxisAlign;
+
+			FVector Scale3D = FVector::OneVector;
+			switch (Rule.StretchAxis)
+			{
+			case ESplineToolkitAxis::X: Scale3D = FVector(Scale,        Rule.Scale.X, Rule.Scale.Y); break;
+			case ESplineToolkitAxis::Y: Scale3D = FVector(Rule.Scale.X, Scale,        Rule.Scale.Y); break;
+			case ESplineToolkitAxis::Z: Scale3D = FVector(Rule.Scale.X, Rule.Scale.Y, Scale);        break;
+			}
+
 			FTransform Transform;
 			Transform.SetLocation(Center - Rotation.RotateVector(BoxCenter * Scale3D));
 			Transform.SetRotation(Rotation);
 			Transform.SetScale3D(Scale3D);
 
-			if (auto InstancerComp = InstancerActor->GetComponentByClass<UInstancedStaticMeshComponent>())
-			{
-				InstancerComp->SetStaticMesh(Rule.Mesh);
-				InstancerComp->AddInstance(Transform, false);
-			}
+			InstancerComp->AddInstance(Transform, false);
 		}
 	}
 }
