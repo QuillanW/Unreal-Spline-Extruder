@@ -436,7 +436,7 @@ void USplineToolkitIntersectionSolver::SolveCollisionsFor(const USplineToolkitIn
 		if (Connector && Connector->Connections.FindByPredicate([OwnerB](const FSplineConnection& Connection)
 		{
 			const auto* Other = Connection.ToSpline.Get();
-			return Other = OwnerB->GetComponentByClass<USplineComponent>();
+			return Other == OwnerB->GetComponentByClass<USplineComponent>();
 		}))
 		{
 			continue;
