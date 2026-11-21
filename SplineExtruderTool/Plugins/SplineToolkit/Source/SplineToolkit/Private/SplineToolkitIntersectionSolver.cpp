@@ -153,6 +153,7 @@ TOptional<TArray<FSplineToolkitSplineIntersection>> USplineToolkitIntersectionSo
 	USplineComponent* SplineB,
 	const FSplineToolkitExtrusionRule& RuleB)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("IntersectionSolver::TestCollision")
 	if (!SplineA || !SplineB || !RuleA.bCheckIntersections || !RuleB.bCheckIntersections)
 		return NullOpt;
 
@@ -373,6 +374,7 @@ TOptional<TArray<FSplineToolkitSplineIntersection>> USplineToolkitIntersectionSo
 void USplineToolkitIntersectionSolver::SolveCollisionsFor(const USplineToolkitIntersectionSolver* Caller,
                                                           const FSplineToolkitExtrusionRule& Rule)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("Intersection::SolveCollisionsFor")
 	// Get the extruder
 	auto* OwnerA = GetOwner();
 	auto* ExtruderA = OwnerA->FindComponentByClass<USplineToolkitMeshExtruder>();

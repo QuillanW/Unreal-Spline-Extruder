@@ -198,6 +198,7 @@ void USplineToolkitMeshExtruder::MarkDirty()
 
 void USplineToolkitMeshExtruder::RegenerateInternal()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("Extruder::RegenerateInternal")
 	this->bRegenerate = false;
 	ClearConservative();
 
@@ -372,6 +373,7 @@ void USplineToolkitMeshExtruder::ClearConservative()
 
 void USplineToolkitMeshExtruder::ExtractOriginSlice(UStaticMesh* InputMesh, FSplineToolkitExtruderMeshData& Data) const
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE()
 	if (!InputMesh || !InputMesh->IsValidLowLevelFast())
 		return;
 
@@ -925,6 +927,7 @@ void USplineToolkitMeshExtruder::ComputeMesh(const FSplineToolkitExtrusionRule& 
                                              UProceduralMeshComponent* MeshComponent,
                                              const FSplineToolkitExtruderMeshData& Data) const
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE()
 	// A nullptr solver means it just does not take it into account
 	auto* Solver = GetOwner()->FindComponentByClass<USplineToolkitIntersectionSolver>();
 
