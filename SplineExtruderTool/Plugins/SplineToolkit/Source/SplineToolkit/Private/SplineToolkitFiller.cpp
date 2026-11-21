@@ -89,6 +89,7 @@ int32 USplineToolkitFiller::GetMapIndex(int32 IntersectionIndex, int32 RuleIndex
 
 void USplineToolkitFiller::RegenerateInternal(const USplineToolkitFiller* Caller)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("Filler::RegenerateInternal")
 	if (!this->Ruleset)
 		return;
 
@@ -484,6 +485,7 @@ bool USplineToolkitFiller::RuleContinuesNormally(const FSplineToolkitFillingConn
 
 void USplineToolkitFiller::RegenerateConnectRules(const FConnectCtx& Ctx)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("Filler::RegenerateConnectRules")
 	int32 RuleIndex = 0;
 	for (const auto& ConnectRule : Ctx.Rules->ConnectRules)
 	{
@@ -639,6 +641,7 @@ void USplineToolkitFiller::RegenerateConnectRule(const FConnectCtx& Ctx, int32 R
                                                  const FSplineToolkitFillingConnectRule& Rule,
                                                  const void* GeneratorRule, UClass* GeneratorClass)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("Filler::RegenerateConnectRule")
 	if (Rule.Start == Rule.End)
 		return;
 
@@ -831,6 +834,7 @@ static bool ShouldCheckHalfway(const FSplineToolkitFillingConnectRuleParams& Par
 
 void USplineToolkitFiller::HandleHalfwayTangents(const FConnectCtx& Ctx)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("Filler::HandleHalfwayTangents")
 	auto* Other = Ctx.Intersection.Other->GetOwner()->GetComponentByClass<USplineToolkitFiller>();
 
 	if (!Other)
@@ -841,7 +845,7 @@ void USplineToolkitFiller::HandleHalfwayTangents(const FConnectCtx& Ctx)
 		const auto& Rule = Ctx.Rules->ConnectRules[I];
 
 		int32 MapIndex = GetMapIndex(Ctx.IntersectionIndex, I);
-		if (!this->SpawnedActors.Contains(MapIndex))
+		if (!this->SpawnedActors.Contains(MapIndex) || !this->RuleTangents.Contains(MapIndex))
 			continue;
 
 		const auto& Actor = this->SpawnedActors[MapIndex];

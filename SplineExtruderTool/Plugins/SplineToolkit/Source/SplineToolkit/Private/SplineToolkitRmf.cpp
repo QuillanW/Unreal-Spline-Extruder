@@ -113,6 +113,7 @@ FSplineToolkitRmfSample USplineToolkitRmfSampler::GetNextSampleFromDistance(floa
 
 void USplineToolkitRmfSampler::Regenerate()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("Sampler::Regenerate")
 	if (!this->SplineComponent)
 		return;
 

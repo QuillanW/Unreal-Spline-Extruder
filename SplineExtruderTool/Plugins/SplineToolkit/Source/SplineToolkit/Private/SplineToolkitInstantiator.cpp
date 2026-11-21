@@ -94,6 +94,7 @@ USplineToolkitRulesetModifierBase* USplineToolkitInstantiator::GetOrCreateModifi
 
 void USplineToolkitInstantiator::RegenerateInternal()
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("Instantiator::RegenerateInternal")
 	bRegenerate = false;
 
 	// Easier to just clear all and regenerate since the components are small and quick to load 
